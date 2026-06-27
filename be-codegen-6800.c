@@ -1303,6 +1303,8 @@ unsigned gen_shortcut(struct node *n)
 				codegen_lr(l->right);
 				/* Use the helper to put it in X */
 				gen_lplus(l, "x");
+				/* We no longer have valid tracking in X */
+				invalidate_x();
 			} else {
 				codegen_lr(l);
 				make_x_d();
@@ -1791,7 +1793,7 @@ unsigned gen_node(struct node *n)
 		}
 		return 1;
 	case T_NEGATE:
-		if (s == 2) { 
+		if (s == 2) {
 			negate_d();
 			return 1;
 		}
