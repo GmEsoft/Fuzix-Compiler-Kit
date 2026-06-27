@@ -1,7 +1,6 @@
 /*
  *	Things to improve
  *	- Improve initialized variable generation in stack frame creation
- *	- Optimize xor 0xff with cpl ?
  *	- Inline load and store of long to static/global/label (certainly for -O2)
  *	- See if we can think down support routines that use the retaddr patching (ideally
  *	  remove them, if not fix Fuzix task switch to save/restore it)
@@ -1662,7 +1661,7 @@ static unsigned gen_logicc(struct node *n, unsigned s, const char *op, unsigned 
 		} else {
 			opcode("mov a,h");
 			if (code == 3 && h == 255)
-				opcode("cpl");
+				opcode("cma");
 			else
 				opcode("%s %u", op, h);
 			opcode("mov h,a");
@@ -1677,7 +1676,7 @@ static unsigned gen_logicc(struct node *n, unsigned s, const char *op, unsigned 
 	} else {
 		opcode("mov a,l");
 		if (code == 3&& l == 255)
-			opcode("cpl");
+			opcode("cma");
 		else
 			opcode("%s %u", op, l);
 		opcode("mov l,a");
@@ -2241,7 +2240,7 @@ static void wordify_subtree(struct node *n)
 	if (r->op == T_CAST || r->op == T_CONSTANT) {
 		r->type = USHORT;
 		return;
-	}	
+	}
 	/* Right side needs actual thinking. Add a cast. We ought to look at doing better
 	   with this and subtrees of PLUS and MUL because of arrays TODO */
 	c = new_node();
@@ -2253,7 +2252,7 @@ static void wordify_subtree(struct node *n)
 
 #endif
 
-	
+
 /*
  *	Allow the code generator to short cut any subtrees it can directly
  *	generate.
@@ -2432,7 +2431,7 @@ unsigned gen_shortcut(struct node *n)
 			return 1;
 		}
 	}
-#ifdef LARGE_MODEL	
+#ifdef LARGE_MODEL
 	if (can_do_near(n)) {
 		printf(";near %04x\n", n->op);
 		n->flags |= NEAR;
@@ -3026,7 +3025,7 @@ unsigned gen_node(struct node *n)
 			return 1;
 		}
 		/* Handle near assignments with the left word sized on stack */
-#ifdef LARGE_MODEL		
+#ifdef LARGE_MODEL
 		return near_eqop(n, "nearassign", 0);
 #endif
 		break;
@@ -3147,7 +3146,7 @@ unsigned gen_node(struct node *n)
 		}
 		/* TODO: for pointers allow this in large not huge mode as pointer wraps are meh */
 		break;
-#ifdef LARGE_MODEL	
+#ifdef LARGE_MODEL
 	/* We have to handle these in large mode for our optimisation cases */
 	/* Check if the left side is 2 byte and we need to use the short fast helpers */
 	case T_PLUSPLUS:

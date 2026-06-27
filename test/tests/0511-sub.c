@@ -1,3 +1,5 @@
+/* Test byte/word substitutions */
+
 int sub(char *p) {
         int v = 100, d = 3;
         *p = v - 10 * d;
@@ -15,6 +17,17 @@ char sub3(void) {
         return x;
 }
 
+int xorneg(void)
+{
+        int x = -128;
+        signed char cx = x;
+
+        if ((cx ^ -128) != (x ^ -128))
+                return 1;
+
+        return 0;
+}
+
 int main(int argc, char *argv[])
 {
         char x;
@@ -24,5 +37,7 @@ int main(int argc, char *argv[])
                 return 2;
         if (sub3() != 1)
                 return 3;
+        if (xorneg())
+                return 4;
         return 0;
 }
