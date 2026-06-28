@@ -6,7 +6,7 @@
 __shreqc:
 	call	__eqprepc
 	push	hl
-	and	7		; count
+	and	15		; count
 	ld	e,a
 	ld	a,(hl)		; working value
 	jr	z, nowork
