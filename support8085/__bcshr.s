@@ -7,10 +7,12 @@
 		.code
 
 __bcshrc:
+		xchg
 		mov	l,c
 		call	__castc_
 		jmp	doshft
 __bcshr:
+		xchg
 		; shift BC right by E
 		mov	l,c
 		mov	h,b
@@ -23,6 +25,7 @@ doshft:
 __bcshruc:
 		mvi	b,0
 __bcshru:
+		xchg
 		; shift BC right by E
 		mov	l,c
 		mov	h,b

@@ -2,6 +2,7 @@
 		.code
 
 __bcshl:
+		ex	de,hl
 		; shift BC right by E
 		ld	l,c
 		ld	h,b
