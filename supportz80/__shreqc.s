@@ -9,7 +9,7 @@ __shreqc:
 		pop	hl
 		ex	(sp),hl
 		ld	a,e
-		and	7
+		and	15
 		ld	e,a
 		ld	a,(hl)
 		jr	z,noop
