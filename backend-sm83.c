@@ -7,8 +7,6 @@
  *	TODO: Track working register live object
  *	TODO: review volatile handling
  *	TODO: look at what would be involved for "do subtree in HL"
- *	TODO: Rename everything in the tool chain to sm83 for correctness
- *
  */
 #include <stdio.h>
 #include <stdint.h>
