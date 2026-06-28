@@ -9,7 +9,7 @@ __shreqc:
 	pop	h
 	xthl
 	mov	a,e
-	ani	7
+	ani	15
 	mov	e,a
 	mov	a,m
 	jz	noop
