@@ -1042,7 +1042,7 @@ unsigned memop_shift(struct node *n, const char *op, const char *opu)
 	switch(l->op) {
 	case T_NAME:
 		sprintf(buf, "%s %s+%u", op, namestr(l->snum), v);
-		repeated_op(r->value, buf);
+		repeated_op(rv, buf);
 		invalidate_mem();
 		return 1;
 	case T_ARGUMENT:
@@ -1051,7 +1051,7 @@ unsigned memop_shift(struct node *n, const char *op, const char *opu)
 		if (!cpu_is_09)
 			return 0;
 		sprintf(buf, "%s %u,s", op, v + sp);
-		repeated_op(r->value, buf);
+		repeated_op(rv, buf);
 		invalidate_mem();
 		return 1;
 	}
