@@ -27,7 +27,7 @@ noshift:
 	ret
 
 __shreqc:
-	and a,=7
+	and a,=15
 	ld e,a
 	bz noshift
 	ld a,0,p2

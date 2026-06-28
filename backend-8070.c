@@ -6,7 +6,7 @@
  *	P0	-	program counter
  *	P1	-	stack pointer (offsets but no inc/dec)
  *	P2	-	working pointer (usable as pointer)
- *	P3	-	maybe use for reg var ?
+ *	P3	-	register pointer
  *
  *	FFxx addressing (akin to zero page on some other processors) is used
  *	for some internal state only
