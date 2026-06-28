@@ -821,7 +821,7 @@ static void pre_sec(struct node *n)
  *	inc and dec are complicated but worth some effort as they
  *	are so commonly used for small constants. We could do with
  *	spotting and folding some stuff like *x++ perhaps to get a
- *	bit better codegen. 
+ *	bit better codegen.
  */
 
 /* We can do most stuff with inc/dec on the 816 */
@@ -992,7 +992,7 @@ struct node *gen_rewrite_node(struct node *n)
 	struct node *r = n->right;
 	unsigned op = n->op;
 	unsigned nt = n->type;
-	unsigned off;
+	long off;
 
 	/* TODO
 	   - rewrite some reg ops
@@ -1041,8 +1041,8 @@ struct node *gen_rewrite_node(struct node *n)
 		if (op == T_DEREF)
 			n->value = 0;	/* So we can treat deref/derefplus together */
 		if (r->op == T_PLUS) {
-			off = n->value + r->right->value;
-			if (r->right->op == T_CONSTANT) {
+			off = n->value + (int16_t)r->right->value;
+			if (r->right->op == T_CONSTANT && off >= 0) {
 				n->op = T_DEREFPLUS;
 				free_node(r->right);
 				n->right = r->left;
@@ -1057,8 +1057,8 @@ struct node *gen_rewrite_node(struct node *n)
 		if (op == T_EQ)
 			n->value = 0;	/* So we can treat deref/derefplus together */
 		if (l->op == T_PLUS) {
-			off = n->value + l->right->value;
-			if (l->right->op == T_CONSTANT) {
+			off = n->value + (int16_t)l->right->value;
+			if (l->right->op == T_CONSTANT && off >= 0) {
 				n->op = T_EQPLUS;
 				free_node(l->right);
 				n->left = l->left;
@@ -1585,7 +1585,7 @@ unsigned gen_direct(struct node *n)
 			outputnc("sta %u,%c\n", n->value + sp + 2, sp_reg);
 			load_a(r->value);
 			outputnc("sta %u,%c\n", n->value + sp, sp_reg);
-			return 1;	
+			return 1;
 		}
 		return 0;
 	case T_EQ:
@@ -2351,7 +2351,7 @@ static void argstack(struct node *n)
 			sp += sz;
 			return;
 		}
-	} 
+	}
 	if (sz == 4 && n->op == T_CONSTANT) {
 		/* Don't send long pushes via hireg */
 		output("dey");
@@ -2371,7 +2371,7 @@ static void argstack(struct node *n)
 
 /* We handle function arguments specially as we both push them to a different
    stack and optimize them. The tree looks like this
-   
+
                  FUNCCALL|CALLNAME
                   /
 	       ARGCOMMA
