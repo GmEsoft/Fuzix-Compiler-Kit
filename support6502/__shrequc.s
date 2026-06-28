@@ -7,7 +7,7 @@
 
 __shrequc:
 	jsr	__poptmp
-	and	#7
+	and	#15
 	tax
 	beq	out
 	lda	(@tmp),y
@@ -23,7 +23,7 @@ out:
 
 __shreqc:
 	jsr	__poptmp
-	and	#7
+	and	#15
 	tax
 	beq	out
 	lda	(@tmp),y
