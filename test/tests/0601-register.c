@@ -31,7 +31,7 @@ unsigned int ptrop(void)
 }
 
 int test_cast(void)
-{	
+{
     static int buf;
     register char *p = (char *)&buf;
     *(int *)p = 0x1234;
@@ -45,6 +45,24 @@ int test_rsave(void)
     if (n != 4)
         return -1;
     return 0;
+}
+
+int test_rshiftc(void)
+{
+	register signed char sc;
+	int s;
+
+	sc = 1;
+	sc >>= 8;
+	if (sc != (signed char) (1 >> 8))
+		return 1;
+
+	sc = 1;
+	s = 8;
+	sc >>= s;
+	if (sc != (signed char) (1 >> 8))
+		return 2;
+        return 0;
 }
 
 int main(int argc, char *argv[])
@@ -65,5 +83,7 @@ int main(int argc, char *argv[])
         return 6;
     if (test_rsave() != 0)
         return 7;
+    if (test_rshiftc() != 0)
+        return 8;
     return 0;
 }
