@@ -9,9 +9,9 @@ __shreqc:
 	pop	h
 	xthl
 	mov	a,e
-	ani	7
-	mov	e,a
-	mov	a,m
+	ani	15		; rolling sign into low bits
+	mov	e,a		; is allowed but a corner case
+	mov	a,m		; so don't optimize
 	jz	noop
 	ora	a
 loop:
