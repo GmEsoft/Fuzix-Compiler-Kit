@@ -3,6 +3,7 @@
 		.code
 
 __bcshl:
+		xchg
 		; shift BC right by E
 		mov	l,c
 		mov	h,b
