@@ -2610,7 +2610,7 @@ unsigned gen_shortcut(struct node *n)
 			return 1;
 		case T_SHREQ:
 			if (r->op == T_CONSTANT) {
-				if (v >= 8 && s == 1) {
+				if (v >= 8 && s == 1 && (n->type & UNSIGNED)) {
 					opcode("mvi c,0");
 					hl_from_reg(n, s);
 					return 1;

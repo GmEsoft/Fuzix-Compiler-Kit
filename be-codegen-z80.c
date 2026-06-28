@@ -1726,7 +1726,7 @@ unsigned gen_shortcut(register struct node *n)
 			return 1;
 		case T_SHREQ:
 			if (r->op == T_CONSTANT && reg == 1) {
-				if (v >= 8 && s == 1) {
+				if (v >= 8 && s == 1 && (n->type & UNSIGNED)) {
 					printf("\tld c,0x0\n");
 					get_regvar(reg, n, s);
 					return 1;
