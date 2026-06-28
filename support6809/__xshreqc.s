@@ -6,7 +6,7 @@
 
 __xshreqc:
 	clra
-	andb	#7
+	andb	#15
 	beq	nowork
 	tfr	b,a
 	ldb	,x

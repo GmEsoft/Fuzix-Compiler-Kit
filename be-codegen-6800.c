@@ -1030,12 +1030,12 @@ unsigned memop_shift(struct node *n, const char *op, const char *opu)
 		return 0;
 
 	/* Right shifts are sign specific */
-	if (n->type & UNSIGNED)
+	if (n->type & UNSIGNED) {
 		op = opu;
-	if (rv > 7) {
-		/* Undefined but do something nice */
-		rv = 1;
-		op = "clr";
+		if (rv > 7) {
+			rv = 1;
+			op = "clr";
+		}
 	}
 	if (rv > 2 && opt < 2)
 		return 0;
