@@ -1,7 +1,5 @@
 /*
  *	Fake mini machine to run compiler tests
- *
- *	For the 
  */
 
 #include <stdio.h>
@@ -19,8 +17,11 @@ static uint8_t ram[65536];
 uint8_t read65c816(uint32_t addr, uint8_t mode)
 {
     if (addr & 0xFFFF0000) {
-        fprintf(stderr, "Read access outside of low 64K\n");
-        exit(1);
+        if (mode == 0) {
+            fprintf(stderr, "Read access outside of low 64K\n");
+            exit(1);
+        }
+        return 0xFF;
     }
     return ram[addr];
 }
