@@ -29,10 +29,9 @@ void mem_write(struct ns8070 *cpu, uint16_t addr, uint8_t val)
 
 	switch(addr) {
 	    case 0xFEFF:
-		if (val == 0)
-			exit(0);
-		fprintf(stderr, "***FAIL %u\n", val);
-		exit(1);
+		if (val)
+			fprintf(stderr, "***FAIL %u\n", val);
+		exit(val);
 	    case 0xFEFE:
 		putchar(val);
 		break;

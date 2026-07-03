@@ -32,22 +32,6 @@ uint8_t m6800_port_input(struct m6800 *cpu, int port)
 	return 0xFF;
 }
 
-uint8_t m6800_inport(uint8_t addr)
-{
-	return 0xFF;
-}
-
-#if	0
-void m6800_outport(uint8_t addr, uint8_t val)
-{
-	if (addr == 0xFF) {
-		if (val)
-			fprintf(stderr, "***FAIL %d\n", val);
-		exit(1);
-	}
-}
-#endif
-
 void m68hc11_spi_begin(struct m6800 *cpu, uint8_t val)
 {
 }
@@ -64,8 +48,6 @@ void m68hc11_port_direction(struct m6800 *cpu, int port)
 
 uint8_t m6800_read_op(struct m6800 *cpu, uint16_t addr, int debug)
 {
-	if (addr >> 8 == 0xFE)
-		return m6800_inport(addr & 0xFF);
 	return ram[addr];
 }
 
@@ -92,10 +74,9 @@ void m6800_write(struct m6800 *cpu, uint16_t addr, uint8_t val)
 
 	switch(addr) {
 	    case 0xFEFF:
-		if (val == 0)
-			exit(0);
-		fprintf(stderr, "***FAIL %u\n", val);
-		exit(1);
+		if (val)
+			fprintf(stderr, "***FAIL %u\n", val);
+		exit(val);
 	    case 0xFEFE:
 		putchar(val);
 		break;

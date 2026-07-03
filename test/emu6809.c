@@ -41,10 +41,9 @@ void e6809_write8(unsigned addr, unsigned char val)
 
 	switch(addr) {
 	    case 0xFEFF:
-		if (val == 0)
-			exit(0);
-		fprintf(stderr, "***FAIL %u\n", val);
-		exit(1);
+		if (val)
+			fprintf(stderr, "***FAIL %u\n", val);
+		exit(val);
 	    case 0xFEFE:
 		putchar(val);
 		break;

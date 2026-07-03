@@ -28,11 +28,9 @@ void mem_write8(uint16_t addr, uint8_t val)
 {
     ram[addr] = val;
     if (addr == 0x1FF) {
-        if (val) {
+        if (val)
             fprintf(stderr, "*** %u\n", val);
-            exit(1);
-        }
-        exit(0);
+        exit(val);
     }
     if (addr == 0x1FE)
         putchar(val);
