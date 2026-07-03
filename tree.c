@@ -713,7 +713,7 @@ struct node *constify(register struct node *n)
 				} else if (l->type & UNSIGNED)
 					value /= r->value;
 				else
-					value = (signed long)value / r->value;
+					value = (signed long)value / (signed long)r->value;
 				break;
 			case T_PERCENT:
 				if (r->value == 0) {
@@ -722,7 +722,7 @@ struct node *constify(register struct node *n)
 				} else if (l->type & UNSIGNED)
 					value %= r->value;
 				else
-					value = (signed long)value % r->value;
+					value = (signed long)value % (signed long)r->value;
 				break;
 			case T_ANDAND:
 				value = value && r->value;
