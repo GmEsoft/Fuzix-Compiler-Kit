@@ -110,7 +110,7 @@ int main(int argc, char *argv[])
         trace = 1;
     }
     if (argc != 3) {
-        fprintf(stderr, "emu85: test map.\n");
+        fprintf(stderr, "emuz80: test map.\n");
         exit(1);
     }
     fd = open(argv[1], O_RDONLY);
