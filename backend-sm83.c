@@ -2126,10 +2126,14 @@ static unsigned gen_cast(struct node *n)
 	if (ls == rs)
 		return 1;
 	/* Don't do the harder ones */
-	if (!(rt & UNSIGNED) || ls > 2)
+	if (!(rt & UNSIGNED))
 		return 0;
-	outputne("ld e,a");
-	outputne("ld d,0");
+	if (rs == 1) {
+		outputne("ld e,a");
+		outputne("ld d,0");
+	}
+	if (ls == 4)
+		outputne("ld bc,0");
 	return 1;
 }
 
