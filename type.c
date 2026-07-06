@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <string.h>
 #include "compiler.h"
 
 
@@ -46,10 +47,28 @@ unsigned type_canonical(unsigned t)
 	/* An array is pointer to the base type of the array */
 	if (IS_ARRAY(t)) {
 		struct symbol *s = symbol_ref(t);
+		unsigned n = array_num_dimensions(t);
+		unsigned p = PTR(t);
+		/* Already a pointer-to-array; leave it. */
+		if (p > n)
+			return t;
+		/* >=2 live dims decay to a pointer to the inner sub-array:
+		   T[a][b] -> T(*)[b] (p==n whole, p<n a partial subscript).
+		   make_array stores idx rather than copying it, so use
+		   sym_find_idx. */
+		if (p >= 2) {
+			unsigned x[1 + PTRMASK + 1];	/* count + max ptr depth */
+			unsigned *idx;
+			/* keep the inner p-1 dims */
+			x[0] = p - 1;
+			memcpy(x + 1, s->data.idx + (n - p + 2), (p - 1) * sizeof(unsigned));
+			idx = sym_find_idx(S_ARRAY, x, p);
+			return type_ptr(make_array(s->type, idx));
+		}
 		/* Shouldn't be possible */
-		if (PTR(s->type) + PTR(t) > 7)
+		if (PTR(s->type) + p > 7)
 			indirections();
-		t = s->type + PTR(t);
+		t = s->type + p;
 	}
 	/* Functions automagically turn into pointers to themselves */
 	if (IS_FUNCTION(t) && !PTR(t))

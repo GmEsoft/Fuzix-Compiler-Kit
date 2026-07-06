@@ -217,16 +217,21 @@ struct node *make_rval(register struct node *n)
 	register unsigned nt = n->type;
 	if (n->flags & LVAL) {
 		if (IS_ARRAY(nt)) {
-			if (PTR(nt) == array_num_dimensions(nt)) {
+			unsigned nd = array_num_dimensions(nt);
+			/* PTR depth vs dimension count tells us what we have:
+			     ==  a real array object          ; address is its value
+			     >   a pointer to an array        ; load the pointer
+			     <   a sub-array mid-subscript    ; address is its value
+			*/
+			if (PTR(nt) == nd) {
 				n->flags &= ~LVAL;
 				return n;
 			}
-#if 0
-			n = sf_tree(T_DEREF, NULL, n);
-			/* Decay to base type of array */
-			if (!PTR(nt))
-				n->type = type_canonical(nt);
-#endif
+			if (PTR(nt) > nd) {
+				n = sf_tree(T_DEREF, NULL, n);
+				n->type = nt;
+				return n;
+			}
 			return n;
 		} else if (IS_FUNCTION(nt) && !PTR(nt)) {
 			n->flags &= ~LVAL;
