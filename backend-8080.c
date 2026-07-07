@@ -2158,7 +2158,7 @@ static void reg_logic(struct node *n, unsigned s, unsigned op, const char *i)
 	/* TODO : constant optimization */
 	codegen_lr(n->right);
 	/* HL is now the value to combine with BC */
-	if (opt > 1) {
+	if (opt > 1 || s == 1) {
 		/* TODO - can avoid the reload into HL if NORETURN */
 		if (s == 2) {
 			opcode("mov a,b");
@@ -2167,7 +2167,7 @@ static void reg_logic(struct node *n, unsigned s, unsigned op, const char *i)
 			opcode("mov h,a");
 		}
 		opcode("mov a,c");
-		opcode("%s c", i + 2);
+		opcode("%s l", i + 2);
 		opcode("mov c,a");
 		opcode("mov l,a");
 		invalidate_hl();

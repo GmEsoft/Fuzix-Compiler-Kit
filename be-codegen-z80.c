@@ -1243,12 +1243,12 @@ static void reg_logic(register struct node *n, unsigned s, unsigned op, const ch
 	/* TODO : constant optimization */
 	codegen_lr(n->right);
 	/* HL is now the value to combine with BC */
-	if (opt > 1 && n->left->value == 1) {
+	if ((s == 1 || opt > 1) && n->left->value == 1) {
 		/* TODO - can avoid the reload into HL if NORETURN */
 		/* TODO: check we never end up with IX or IY here */
 		if (s == 2)
 			printf("\tld a,b\n\t%s h\n\tld b,a\n\tld h,a\n", i + 2);
-		printf("\tld a,c\n\t%s c\n\tld c,a\n\tld l,a\n", i + 2);
+		printf("\tld a,c\n\t%s l\n\tld c,a\n\tld l,a\n", i + 2);
 	} else {
 		reghelper(n, i);
 		get_regvar(n->left->value, NULL, s);
