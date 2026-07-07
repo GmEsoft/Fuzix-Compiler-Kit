@@ -65,6 +65,15 @@ int test_rshiftc(void)
         return 0;
 }
 
+int bytelogic(void)
+{
+    register char a = 0xF0;
+
+    if ((a ^= 0x0F) != 0xFF || a != 0xFF)
+        return 1;
+    return 0;
+}
+
 int main(int argc, char *argv[])
 {
     register int x = 0;
@@ -85,5 +94,7 @@ int main(int argc, char *argv[])
         return 7;
     if (test_rshiftc() != 0)
         return 8;
+    if (bytelogic())
+        return 9;
     return 0;
 }
