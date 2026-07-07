@@ -1752,7 +1752,7 @@ void gen_epilogue(unsigned size, unsigned argsize)
 	}
 	/* +1 to fold in the other half of the pop */
 	if (!(func_flags & F_VARARG)) {
-		gen_exitjp(argsize);	
+		gen_exitjp(argsize);
 		return;
 	}
 	gen_exitjp(0);
@@ -2040,7 +2040,7 @@ static unsigned gen_fast_div(unsigned r, unsigned s, unsigned long n)
 {
 	return 0;
 #if 0
-	/* TODO DEBUG*/ 
+	/* TODO DEBUG*/
 	unsigned hr = r;
 	if (n & (n - 1))
 		return 0;
@@ -2057,7 +2057,7 @@ static unsigned gen_fast_div(unsigned r, unsigned s, unsigned long n)
 	r_modify(r, s);
 	rshift_r(r, s, ilog2(n), 1);
 	return 1;
-#endif	
+#endif
 }
 
 static unsigned gen_fast_udiv(unsigned r, unsigned s, unsigned long n)
@@ -2959,7 +2959,7 @@ unsigned gen_shortcut(struct node *n)
 			return 1;
 		case T_SHLEQ:
 			if (r->op == T_CONSTANT) {
-				lshift_r(R_REG(reg), size, v);
+				lshift_r(R_REG_S(reg, size), size, v);
 				return 1;
 			}
 			codegen_lr(r);
@@ -2969,7 +2969,7 @@ unsigned gen_shortcut(struct node *n)
 			opnoeff_r_r(5, 5, "or");
 			printf("\tjz X%u\n", v);
 			x = label();
-			add_r_r(R_REG(reg), R_REG(reg), size);
+			add_r_r(R_REG_S(reg, size), R_REG_S(reg, size), size);
 			djnz_r(R_ACCHAR, x);
 			printf("X%u:\n", v);
 			if (!nr)
@@ -2977,7 +2977,7 @@ unsigned gen_shortcut(struct node *n)
 			return 1;
 		case T_SHREQ:
 			if (r->op == T_CONSTANT) {
-				rshift_r(R_REG(reg), size, v, n->type & UNSIGNED);
+				rshift_r(R_REG_S(reg, size), size, v, n->type & UNSIGNED);
 				return 1;
 			}
 			codegen_lr(r);
@@ -2986,7 +2986,7 @@ unsigned gen_shortcut(struct node *n)
 			opnoeff_r_r(5, 5, "or");
 			printf("\tjz X%u\n", v);
 			x = label();
-			rshift_r(R_REG(reg), size, 1, n->type & UNSIGNED);
+			rshift_r(R_REG_S(reg, size), size, 1, n->type & UNSIGNED);
 			djnz_r(R_ACCHAR, x);
 			if (!nr)
 				load_ac_reg(reg, size);
@@ -2995,19 +2995,19 @@ unsigned gen_shortcut(struct node *n)
 		/* TODO: reg/reg versions */
 		case T_ANDEQ:
 			codegen_lr(r);
-			logic_r_r(reg, R_AC, size, OP_AND);
+			logic_r_r(R_REG_S(reg, size), R_AC, size, OP_AND);
 			if (!nr)
 				load_ac_reg(reg, size);
 			return 1;
 		case T_OREQ:
 			codegen_lr(r);
-			logic_r_r(reg, R_AC, size, OP_OR);
+			logic_r_r(R_REG_S(reg, size), R_AC, size, OP_OR);
 			if (!nr)
 				load_ac_reg(reg, size);
 			return 1;
 		case T_HATEQ:
 			codegen_lr(r);
-			logic_r_r(reg, R_AC, size, OP_XOR);
+			logic_r_r(R_REG_S(reg, size), R_AC, size, OP_XOR);
 			if (!nr)
 				load_ac_reg(reg, size);
 			return 1;
@@ -3241,7 +3241,7 @@ unsigned gen_node(struct node *n)
 			op_r_r(0, R_WORK, "adc");
 			return 1;
 		}
-#endif		
+#endif
 		if (size > 2)
 			return 0;
 		/* FIXME: will need a "not register" check .. otherwise

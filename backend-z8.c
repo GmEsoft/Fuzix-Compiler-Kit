@@ -782,6 +782,17 @@ static void rshift_r(unsigned r, unsigned size, unsigned l, unsigned uns)
 		invalidate_ac();
 	r_modify(r, size);
 
+	if (l >= 8 && !uns && size < 2) {
+		/* The operation is mathematically done integer so we
+		   really turn r into the sign repeated */
+		/* Sign into carry */
+		printf("\trl r%u\n", r);
+		/* Clear */
+		printf("\tclr r%u\n", r);
+		/* Set to 0xFF if carry - ie sign set */
+		printf("\tsbc r%u,0\n", r);
+		return;
+	}
 	l &= (8 * size) - 1;
 	if (l == 0)
 		return;
@@ -3093,7 +3104,7 @@ unsigned gen_shortcut(struct node *n)
 			return 1;
 		case T_SHLEQ:
 			if (r->op == T_CONSTANT) {
-				lshift_r(R_REG(reg), size, v);
+				lshift_r(R_REG_S(reg, size), size, v);
 				return 1;
 			}
 			codegen_lr(r);
@@ -3103,7 +3114,7 @@ unsigned gen_shortcut(struct node *n)
 			opnoeff_r_r(3, 3, "or");
 			printf("\tjr z, X%u\n", v);
 			x = label();
-			add_r_r(R_REG(reg), R_REG(reg), size);
+			add_r_r(R_REG_S(reg, size), R_REG(reg) + 2 - size, size);
 			djnz_r(R_ACCHAR, x);
 			printf("X%u:\n", v);
 			if (!nr)
@@ -3111,7 +3122,7 @@ unsigned gen_shortcut(struct node *n)
 			return 1;
 		case T_SHREQ:
 			if (r->op == T_CONSTANT) {
-				rshift_r(R_REG(reg), size, v, n->type & UNSIGNED);
+				rshift_r(R_REG_S(reg, size), size, v, n->type & UNSIGNED);
 				return 1;
 			}
 			codegen_lr(r);
@@ -3120,7 +3131,7 @@ unsigned gen_shortcut(struct node *n)
 			opnoeff_r_r(3, 3, "or");
 			printf("\tjr z, X%u\n", v);
 			x = label();
-			rshift_r(R_REG(reg), size, 1, n->type & UNSIGNED);
+			rshift_r(R_REG_S(reg, size), size, 1, n->type & UNSIGNED);
 			djnz_r(R_ACCHAR, x);
 			if (!nr)
 				load_ac_reg(reg, size);
@@ -3128,20 +3139,21 @@ unsigned gen_shortcut(struct node *n)
 			return 1;
 		/* TODO: reg/reg versions */
 		case T_ANDEQ:
+			/* FIXME: this looks wrong - R_REG_S() */
 			codegen_lr(r);
-			logic_r_r(reg, R_AC, size, OP_AND);
+			logic_r_r(R_REG_S(reg, size), R_AC, size, OP_AND);
 			if (!nr)
 				load_ac_reg(reg, size);
 			return 1;
 		case T_OREQ:
 			codegen_lr(r);
-			logic_r_r(reg, R_AC, size, OP_OR);
+			logic_r_r(R_REG_S(reg, size), R_AC, size, OP_OR);
 			if (!nr)
 				load_ac_reg(reg, size);
 			return 1;
 		case T_HATEQ:
 			codegen_lr(r);
-			logic_r_r(reg, R_AC, size, OP_XOR);
+			logic_r_r(R_REG_S(reg, size), R_AC, size, OP_XOR);
 			if (!nr)
 				load_ac_reg(reg, size);
 			return 1;
