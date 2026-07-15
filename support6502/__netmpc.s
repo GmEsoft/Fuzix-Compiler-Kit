@@ -20,10 +20,16 @@ __netmpc:
 __netmpuc:
 	ldx	#0
 	cmp	@tmp
+eqbool:
 	beq	false	; already 0
 true:	lda	#1
 	rts
 false:	txa
 	rts
-__nexa:	stx	@tmp
-	jmp	__netmpc
+__nexa:	stx	@tmp2	; so we don't mash @tmp for better code
+	ldx	#0
+	cmp	@tmp2
+	bne	true
+	txa
+	rts
+
