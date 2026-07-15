@@ -59,6 +59,7 @@ int mods100n(int a)
     return a % -100;
 }
 
+
 int main(int argc, char *argv[])
 {
     unsigned n;
@@ -167,5 +168,29 @@ int main(int argc, char *argv[])
     c = 1;
     if (c / 2)
         return 40;
+
+    u = 5;
+    u %= -3;
+    if (u != 2)
+        return 41;
+    u = 5;
+    if (u %= -3 != 2)
+        return 42;
+
+    u = 255;
+    u /= 1;
+    if (u != 255)
+        return 43;
+
+    u = 255;
+    u %= 254;
+    if (u != 1)
+        return 44;
+
+    c = -1;
+    c /= 1;
+    if (c != -1)
+        return 45;
+
     return 0;
 }
