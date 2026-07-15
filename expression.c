@@ -687,6 +687,8 @@ static struct node *hier1(void)
 	register struct node *l, *r;
 	unsigned fc;
 	unsigned scale = 1;
+	unsigned shorten = 0;
+
 	l = hier1a();
 	if (match(T_EQ)) {
 		if ((l->flags & LVAL) == 0)
@@ -733,7 +735,10 @@ static struct node *hier1(void)
 					badtype();
 			}
 			/* Get the type converted to the bit width of the maths */
-			r = make_cast(r, l->type);
+			if (fc == T_SLASHEQ || fc == T_PERCENTEQ)
+				r = make_cast(r, arith_pro(l->type, r->type));
+			else	/* Safe to evaluate as shorter type */
+				r = make_cast(r, l->type);
 			if (scale)
 				return sf_tree(fc, l,
 					    tree(T_STAR, r,

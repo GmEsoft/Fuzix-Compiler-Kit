@@ -76,7 +76,7 @@ struct node *tree(unsigned op, struct node *l, struct node *r)
 		type = l->type;
 	else if (r)
 		type = r->type;
-	return typed_tree(op, type, l, r);		
+	return typed_tree(op, type, l, r);
 }
 
 struct node *sf_tree(unsigned op, struct node *l, struct node *r)
@@ -139,7 +139,7 @@ struct node *make_symbol(register struct symbol *s)
 #ifdef DEBUG
 	if (debug)
 		fprintf(debug, "name %04x type %04x\n", s->name, s->type);
-#endif		
+#endif
 	return n;
 }
 
@@ -328,7 +328,7 @@ struct node *bool_tree(register struct node *n, unsigned flags)
 }
 
 /* Calculate arithmetic promotion */
-static unsigned arith_pro(register unsigned lt, register unsigned rt)
+unsigned arith_pro(register unsigned lt, register unsigned rt)
 {
 	/* Turn pointers to matching target specific integer type */
 	if (PTR(lt))
