@@ -9,14 +9,28 @@
 ;
 	.export __xdiveqc
 	.export __xremeqc
+	.export __xdivequc
+	.export __xremequc
 
 ;
 ;	The sign of the remainder of a division is not defined until C99.
 ;	C99 says it's the sign of the dividend.
 ;
+;	Weirdly we do uc the same way as c because the operation for char
+;	types gets promoted to integer. In both cases the working value
+;	is integer already
+;
+__xremequc:
+	stx @tmp5
+	bsr absd
+	staa @tmp
+	stab @tmp+1
+	clra
+	ldab ,x
+	bra dorem
 __xremeqc:
 	stx @tmp5
-	bsr sex
+;	bsr sex
 	bsr absd
 	staa @tmp
 	stab @tmp+1
@@ -24,6 +38,7 @@ __xremeqc:
 	bsr sex
 	bita #0x80
 	bne negmod
+dorem:
 	staa @tmp1
 	stab @tmp1+1
 	ldaa @tmp
@@ -52,17 +67,27 @@ negmod:
 ;	The sign of the result is positive if the inputs have the same
 ;	sign, otherwise negative
 ;
-__xdiveqc:
+__xdivequc:
 	stx @tmp5
 	clr @tmp2		; Count number of sign changes
-	bsr sex
+;	bsr sex
 	bsr absd
 	staa @tmp
 	stab @tmp+1
 
 	ldab ,x			; Data value
+	bra dodiv
+__xdiveqc:
+	stx @tmp5
+	clr @tmp2		; Count number of sign changes
+;	bsr sex
+	bsr absd
+	staa @tmp
+	stab @tmp+1
+	ldab ,x			; Data value
 	bsr sex
 	bsr absd
+dodiv:
 	staa @tmp1
 	stab @tmp1+1
 	ldaa @tmp
