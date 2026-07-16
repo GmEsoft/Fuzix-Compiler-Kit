@@ -5,10 +5,12 @@
 	.export __div
 	.export __diveq
 	.export __diveqc
+	.export __divequc
 
 	.export __rem
 	.export __remeq
 	.export __remeqc
+	.export __remequc
 
 __div:
 	st ea,:__tmp	; save divisor
@@ -112,14 +114,19 @@ __diveq:
 	st ea,0,p2
 	ret
 
+__divequc:
+	ld t,ea
+	ld ea,=0
+	ld a,0,p2
+	bra dodiv
 __diveqc:
 	ld t,ea
 	ld a,0,p2
 	jsr __castc_
+dodiv:
 	push p2
 	push ea
 	ld ea,t
-	jsr __castc_
 	jsr __div
 	pop p2
 	pop p2
@@ -139,14 +146,19 @@ __remeq:
 	st ea,0,p2
 	ret
 
+__remequc:
+	ld t,ea
+	ld ea,=0
+	ld a,0,p2
+	bra dorem
 __remeqc:
 	ld t,ea
 	ld a,0,p2
 	jsr __castc_
+dorem:
 	push p2
 	push ea
 	ld ea,t
-	jsr __castc_
 	jsr __rem
 	pop p2
 	pop p2

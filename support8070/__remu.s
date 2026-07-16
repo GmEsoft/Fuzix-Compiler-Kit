@@ -10,9 +10,6 @@
 	.export __divequ
 	.export __remequ
 
-	.export __divequc
-	.export __remequc
-
 __remu:
 	push ea		; save divisor
 	ld ea,=0
@@ -103,22 +100,6 @@ __remequ:
 	st ea,0,p2
 	ret
 
-__remequc:
-	ld t,ea
-	ld ea,=0
-	ld a,0,p2
-	push p2
-	push ea
-	ld ea,t
-	xch a,e
-	ld a,=0
-	xch a,e
-	jsr __remu
-	pop p2
-	pop p2
-	st a,0,p2
-	ret
-
 __divequ:
 	ld t,ea
 	ld ea,0,p2
@@ -129,20 +110,4 @@ __divequ:
 	pop p2
 	pop p2
 	st ea,0,p2
-	ret
-
-__divequc:
-	ld t,ea
-	ld ea,=0
-	ld a,0,p2
-	push p2
-	push ea
-	ld ea,t
-	xch a,e
-	ld a,=0
-	xch a,e
-	jsr __divu
-	pop p2
-	pop p2
-	st a,0,p2
 	ret
