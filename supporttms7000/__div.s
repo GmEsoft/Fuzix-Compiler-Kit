@@ -4,6 +4,8 @@
 	.export __remeq
 	.export __diveqc
 	.export __remeqc
+	.export __divequc
+	.export __remequc
 
 	.code
 
@@ -100,6 +102,7 @@ __diveqc:
 	lda *r13
 	mov a,r3
 	call @sex
+dodivc:
 	push r12
 	push r13
 	call @__dodivs	; do the division
@@ -110,6 +113,13 @@ storec:
 	mov r5,a
 	sta *r13
 	rets
+
+__divequc:
+	call @__pop12
+	lda *r13
+	mov a,r3		; get value into r2/r3
+	clr r2			; unsigned char expand to int
+	jmp dodivc
 
 __remeq:
 	call @__pop12
@@ -129,6 +139,16 @@ __remeqc:
 	lda *r13
 	mov a,r3
 	call @sex
+	push r12
+	push r13
+	call @__dorems	; do the division
+	jmp storec
+
+__remequc:
+	call @__pop12
+	lda *r13
+	mov a,r3
+	clr r2
 	push r12
 	push r13
 	call @__dorems	; do the division

@@ -3,11 +3,11 @@ all: libtms7000.a crt0.o
 OBJ =	__cast.o __nref.o __nrefl.o __nref10.o __lstref.o __cleanup.o \
 	__push.o __pop.o __rpush.o \
 	__plusplus.o __plusplusl.o __lplusplus.o __lplusplusl.o \
-	__div16x16.o __div32x32.o __divequc.o __divequ.o __div.o \
+	__div16x16.o __div32x32.o __divequ.o __div.o \
 	__switch.o __switchc.o __switchl.o __bool.o __local.o \
 	__not.o \
 	__muleqc.o __muleq.o \
-	__remequc.o __remequ.o \
+	__remequ.o \
 	__plusl.o __minusl.o \
 	__ccltu.o __ccgtu.o __ccgtequ.o __ccltequ.o \
 	__cceq.o __ccne.o \
