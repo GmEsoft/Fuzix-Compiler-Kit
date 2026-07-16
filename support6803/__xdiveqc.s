@@ -9,21 +9,33 @@
 ;
 	.export __xdiveqc
 	.export __xremeqc
+	; The maths is promoted so done as integer
+	.export __xdivequc
+	.export __xremequc
 
 	.setcpu 6803
 ;
 ;	The sign of the remainder of a division is not defined until C99.
 ;	C99 says it's the sign of the dividend.
 ;
+__xremequc:
+	pshx			; save pointer
+;	bsr sex
+	bsr absd
+	std @tmp
+	ldab ,x
+	clra
+	bra dorem
 __xremeqc:
 	pshx			; save pointer
-	bsr sex
+;	bsr sex
 	bsr absd
 	std @tmp
 	ldab ,x
 	bsr sex
 	bita #0x80
 	bne negmod
+dorem:
 	std @tmp1
 	ldd @tmp
 	ldx @tmp1
@@ -48,16 +60,27 @@ negmod:
 ;	The sign of the result is positive if the inputs have the same
 ;	sign, otherwise negative
 ;
+__xdivequc:
+	pshx
+	clr @tmp2		; Count number of sign changes
+;	bsr sex
+	bsr absd
+	std @tmp
+
+	ldab ,x			; Data value
+	clra
+	bra dodiv
 __xdiveqc:
 	pshx
 	clr @tmp2		; Count number of sign changes
-	bsr sex
+;	bsr sex
 	bsr absd
 	std @tmp
 
 	ldab ,x			; Data value
 	bsr sex
 	bsr absd
+dodiv:
 	std @tmp1
 	ldd @tmp
 	ldx @tmp1
