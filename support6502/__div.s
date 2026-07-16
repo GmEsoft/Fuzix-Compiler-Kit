@@ -6,6 +6,8 @@
 	.export __remeq
 	.export __diveqc
 	.export __remeqc
+	.export __divequc
+	.export __remequc
 	.export __l_div
 	.export __l_rem
 
@@ -122,22 +124,36 @@ __remeq:
 ;	(TOS) / XA
 ;
 __diveqc:
-	jsr	sex
 	jsr	__eqgetcs		; @tmp is the value
 	jsr	__divtmp
-	jmp	__eqput			; pop TOS into @tmp,
-					; write (XA) back into TOS
-					; return result in XA
+	jsr	__poptmp
+	sta	(@tmp),y
+	rts
 ;
 ;	(TOS) % XA
 ;
 __remeqc:
-	jsr	sex
 	jsr	__eqgetcs		; @tmp is the value
 	jsr	__remtmp
-	jmp	__eqput			; pop TOS into @tmp,
-					; write (XA) back into TOS
-					; return result in XA
+	jsr	__poptmp
+	sta	(@tmp),y
+	rts
+
+__divequc:
+	jsr	__eqgetc		; @tmp is the value
+	jsr	__divtmp
+	jsr	__poptmp
+	sta	(@tmp),y
+	rts
+;
+;	(TOS) % XA
+;
+__remequc:
+	jsr	__eqgetc		; @tmp is the value
+	jsr	__remtmp
+	jsr	__poptmp
+	sta	(@tmp),y
+	rts
 
 sex:
 	ldx	#0
