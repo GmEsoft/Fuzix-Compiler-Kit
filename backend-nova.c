@@ -1605,6 +1605,12 @@ static struct node ntmp;
 static unsigned do_eqop(struct node *n, unsigned op, unsigned cost, unsigned save)
 {
 	unsigned s = get_size(n->type);
+	unsigned doex = 0;
+
+	/* For /= and %= of byte sized objects we must allow for the
+	   operation occuring promoted to integer */
+	if (s == 1 && (op == T_SLASH || op == T_PERCENT))
+		doex = 1;
 
 	/* At this point TOS is the pointer */
 	if (s == 1) {
@@ -1635,8 +1641,12 @@ static unsigned do_eqop(struct node *n, unsigned op, unsigned cost, unsigned sav
 	memcpy(&ntmp, n, sizeof(ntmp));
 	ntmp.op = op;
 	ntmp.left = NULL;
-	if (s == 1)
+	if (s == 1) {
+		/* Promoted to be done integer */
+		if (doex)
+			ntmp.type &= ~UNSIGNED;
 		ntmp.type |= CINT;	/* CCHAR to CINT */
+	}
 	sp += get_stack_size(n->type) / 2;
 
 	make_node(&ntmp);
@@ -1817,7 +1827,7 @@ unsigned gen_node(struct node *n)
 				printf("\tlda 1,%d,3\n", d);
 			else {
 				printf("\tlda 1,%d,3\n", d + 1);
-				printf("\tlda 0,%d,3\n", d); 
+				printf("\tlda 0,%d,3\n", d);
 				store_hireg(0);
 			}
 			return 1;
@@ -1982,7 +1992,7 @@ unsigned gen_node(struct node *n)
 			printf("\tadd 2,3\n");
 			store_hireg(3);
 			gen_mffp();
-		} else { 
+		} else {
 			popa(0);
 			printf("\tadd 0,1\n");
 		}
