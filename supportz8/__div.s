@@ -4,6 +4,8 @@
 	.export __remeq
 	.export __diveqc
 	.export __remeqc
+	.export __divequc
+	.export __remequc
 
 	.code
 
@@ -108,6 +110,7 @@ __diveqc:
 	push r12
 	lde r1,@rr14
 	call sex
+dodivc:
 	push r15
 	push r14
 	call __dodivs	; do the division
@@ -117,6 +120,17 @@ storec:
 	clr r2
 	lde @rr14,r3
 	ret
+
+__divequc:
+	pop r12		; Get arg off stack
+	pop r13
+	pop r14
+	pop r15
+	push r13
+	push r12
+	lde r1,@rr14
+	clr r0
+	jr dodivc
 
 __remeq:
 	pop r12		; Get arg off stack
@@ -142,10 +156,22 @@ __remeqc:
 	push r12
 	lde r1,@rr14
 	call sex
+doremc:
 	push r15
 	push r14
 	call __dorems	; do the division
 	jr storec
+
+__remequc:
+	pop r12		; Get arg off stack
+	pop r13
+	pop r14
+	pop r15
+	push r13
+	push r12
+	lde r1,@rr14
+	clr r0
+	jr doremc
 
 sex:
 	; Sign extend r1 and r3 into r0 and r2 respectively
