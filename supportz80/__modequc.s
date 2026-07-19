@@ -1,10 +1,9 @@
 ;
-;		(TOS) /= L
+;		(TOS) /= HL
 ;
 
 		.export __remequc
 		.code
-
 __remequc:
 		ex	de,hl
 		pop	hl
@@ -12,15 +11,13 @@ __remequc:
 		; Now we are doing (HL) * DE
 		push	de
 		ld	e,(hl)
-		ex	(sp),hl	; swap address with stacked value
-		ex	de,hl	; swap them back as we divide by DE
+		ld	d,0
+		ex	(sp),hl		; swap address with stacked value
+		ex	de,hl		; swap them back as we divide by DE
 		; We are now doing HL / DE and the address we want is TOS
-		ld	h,0
-		ld	d,h
 		call	__remde
 		; Return is in HL
-		ex	de,hl
-		pop	hl
-		ld	(hl),e
-		ex	de,hl
+		pop	de
+		ld	a,l
+		ld	(de),a
 		ret

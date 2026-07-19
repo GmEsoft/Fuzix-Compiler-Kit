@@ -1,5 +1,5 @@
 ;
-;		(TOS) /= L
+;		(TOS) /= HL
 ;
 
 		.export __remeqc
@@ -15,9 +15,6 @@ __remeqc:
 		ex	de,hl		; swap them back as we divide by DE
 		; We are now doing HL / DE and the address we want is TOS
 		call	__sex
-		ex	de,hl
-		call	__sex
-		ex	de,hl
 		call	__remde
 		; Return is in HL
 		pop	de

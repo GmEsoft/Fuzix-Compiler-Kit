@@ -1,5 +1,5 @@
 ;
-;		(TOS) /= L
+;		(TOS) /= HL
 ;
 
 		.export __divequc
@@ -9,13 +9,12 @@ __divequc:
 		ex	de,hl
 		pop	hl
 		ex	(sp),hl
-		; Now we are doing (HL) / E
+		; Now we are doing (HL) / DE
 		push	hl
 		ld	l,(hl)
 		ld	h,0
-		ld	d,h
 		; We are now doing HL / DE and the address we want is TOS
-		call	__divdeu
+		call	__divde
 		; Return is in HL
 		pop	de
 		ld	a,l
