@@ -1,6 +1,7 @@
 	.setcpu 4
 	.export __remeq
 	.export __remeqc
+	.export __remequc
 
 	.code
 
@@ -22,15 +23,10 @@ __remeqc:
 	lda	2(s)
 	ldab	(a)
 	clrb	ah
-	clrb	bh
 	orib	al,al
 	bp	ispve
 	dcrb	ah
 ispve:
-	orib	bl,bl
-	bp	ispve2
-	dcrb	bh
-ispve2:
 	stx	(-s)
 	sta	(-s)
 	jsr	__rem
@@ -40,3 +36,9 @@ ispve2:
 	inr	s
 	inr	s
 	rsr
+
+__remequc:
+	lda	2(s)
+	ldab	(a)
+	clrb	ah
+	bra	ispve

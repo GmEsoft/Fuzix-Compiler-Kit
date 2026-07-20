@@ -1,6 +1,7 @@
 	.setcpu 4
 	.export __diveq
 	.export __diveqc
+	.export __divequc
 
 	.code
 
@@ -18,19 +19,15 @@ __diveq:
 	inr	s
 	rsr
 
+;	(TOS) / B
 __diveqc:
-	lda	2(s)
-	ldab	(a)
-	clrb	ah
-	clr	bh
-	orib	al,al
+	lda	2(s)		; pointer
+	ldab	(a)		; get low half
+	clrb	ah		; clear high half
+	orib	al,al		; sign extend ?
 	bp	ispve
 	dcrb	ah
 ispve:
-	orib	bl,bl
-	bp	ispve2
-	dcrb	bh
-ispve2:
 	stx	(-s)
 	sta	(-s)
 	jsr	__div
@@ -40,3 +37,13 @@ ispve2:
 	inr	s
 	inr	s
 	rsr
+
+;	(TOS) / B
+;	Byte sized operations extend to integer by C promotion rules
+;	so end up being computed as signed divisons
+;
+__divequc:
+	lda	2(s)		; pointer
+	ldab	(a)		; get low half
+	clrb	ah		; clear high half
+	bra	ispve
