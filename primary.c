@@ -19,6 +19,7 @@ struct node *constant_node(void)
 	unsigned label;
 	unsigned t;
 	int len;
+/*	unsigned uniplus = 0; */
 
 	/* Strings are special */
 	label = quoted_string(&len);
@@ -46,6 +47,11 @@ struct node *constant_node(void)
 #endif
 		}
 		return n;
+	}
+	if (token == T_PLUS) {
+		/* + numeric value */
+/*		uniplus = 1; */
+		next_token();
 	}
 	/* Numeric */
 	switch (token) {
@@ -86,6 +92,12 @@ struct node *constant_node(void)
 	}
 #endif
 	n = make_constant(token_value, t);
+#if 0
+	/* TODO: is this actually invalid C ? */
+	if (uniplus && !(t & UNSIGNED) && (token_value & 0x80000000))
+		/* x = +-1; is not valid */
+		error("invalid value");
+#endif
 	next_token();
 	return n;
 }
@@ -122,7 +134,7 @@ struct node *primary(void)
 			warning("undeclared function prototype");
 			sym = update_symbol_by_name(name, S_EXTERN, deffunctype);
 		}
-		/* You can't size fields and structs by field/struct name without 
+		/* You can't size fields and structs by field/struct name without
 		   the type specifier */
 		if (sym == NULL) {
 			/* Enum... */
