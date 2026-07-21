@@ -3,9 +3,20 @@
 ;
 
 	.export __remeqc
+	.export __remequc
 	.setcpu 8080
 	.code
 
+__remequc:
+	call	__popeq
+	; Now we are doing (HL) * DE
+	push	d
+	mov	e,m
+	mvi	d,0
+	xthl	; swap address with stacked value
+	xchg	; swap them back as we divide by DE
+	; We are now doing HL / DE and the address we want is TOS
+	jmp	dorem
 __remeqc:
 	call	__popeq
 	; Now we are doing (HL) * DE
@@ -15,9 +26,7 @@ __remeqc:
 	xchg	; swap them back as we divide by DE
 	; We are now doing HL / DE and the address we want is TOS
 	call	__sex
-	xchg
-	call	__sex
-	xchg
+dorem:
 	call	__remde
 	; Return is in HL
 	pop	d
