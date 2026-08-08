@@ -446,7 +446,7 @@ struct node *logic_tree(unsigned op, struct node *l, struct node *r)
 		badtype();
 	if (!PTR(rt) && !IS_ARITH(rt))
 		badtype();
-	n = typed_tree(op, CINT, bool_tree(l, 0), bool_tree(r, 0));
+	n = typed_tree(op, CINT, bool_tree(l, NEEDCC), bool_tree(r, NEEDCC));
 	return n;
 }
 
