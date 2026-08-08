@@ -47,6 +47,12 @@
 =
 	xor a
 
+# Happens on << 8 of cast of byte
+	ld h,0x%1
+	ld h,l
+=
+	ld h,l
+
 # Trivial perverse assignment and usage pattern
 # Really we need reg tracking for ix iy hl and maybe bc de
 	push hl
