@@ -2284,6 +2284,12 @@ unsigned gen_shortcut(struct node *n)
 	 * until we generate the subtree. So generate the tree, then
 	 * either do nice things or use the helper */
 	if (n->op == T_BOOL) {
+		if (r->op == T_CONSTANT && (n->flags & CCONLY)) {
+			opcode("xra a");
+			if (r->value)
+				opcode("inr a");
+			return 1;
+		}
 		codegen_lr(r);
 		if (r->flags & ISBOOL)
 			return 1;
