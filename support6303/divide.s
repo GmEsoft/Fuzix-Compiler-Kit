@@ -44,6 +44,6 @@ loop:
 	addd @tmp1
 	dex
 skip:
-	dec tmp
+	dec @tmp
 	bne loop
 	rts
