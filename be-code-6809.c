@@ -542,9 +542,11 @@ unsigned write_tos_opd(struct node *n, const char *op, const char *op2)
 {
 	unsigned s = get_size(n->type);
 	if (s == 4) {
-		printf("\t%s 2,s\n", op);
-		printf("\t%s 1,s\n", op2);
-		printf("\t%s ,s\n", op2);
+		printf("\t%sd 2,s\n", op);
+		swap_d_y();
+		printf("\t%sb 1,s\n", op2);
+		printf("\t%sa ,s\n", op2);
+		swap_d_y();
 		puts("\tleas 4,s");
 		return 1;
 	} else if (s == 2)
@@ -596,7 +598,7 @@ unsigned left_shift(struct node *n)
 			v -= 8;
 			if (v) {
 				invalidate_work();
-				repeated_op(v, "lsl");
+				repeated_op(v, "lsla");
 			}
 			return 1;
 		}
