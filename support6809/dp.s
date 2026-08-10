@@ -1,13 +1,5 @@
 	.dp
 
-	.export hireg
-	.export zero
-	.export one
-
-hireg:	.word 0
-zero:	.byte 0
-one:	.word 0
-
 	.export tmp
 	.export tmp2
 	.export tmp3
