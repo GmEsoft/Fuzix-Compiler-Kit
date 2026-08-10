@@ -31,18 +31,18 @@ __notc:
 	cmpb	#0
 	bra	booleq
 __not:
-	cmpd	@zero
+	cmpd	#0
 booleq:
 	bne	ret0
 ret1:
-	ldd	@one
+	ldd	#1
 	rts
 
 __boolc:
 	cmpb	#0
 	bra	boolne
 __bool:
-	cmpd	@zero
+	cmpd	#0
 boolne:
 	bne	ret1
 ret0:
@@ -76,6 +76,6 @@ booluge:
 boolule:
 	beq	ret1
 boolult:			; use C flag
-	ldd	@zero
+	ldd	#0
 	rolb
 	rts

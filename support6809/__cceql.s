@@ -8,7 +8,7 @@ __cceql:
 	bne	false
 	cmpd	4,s
 	bne	false
-	ldd	@one
+	ldd	#1
 out:
 	ldx	,s
 	leas	6,s

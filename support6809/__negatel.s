@@ -9,7 +9,7 @@ __negatel:
 	exg d,y
 	coma
 	comb
-	addd @one
+	addd #1
 	bcc nocarry
 	leay 1,y
 nocarry:

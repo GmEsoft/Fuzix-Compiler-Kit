@@ -18,7 +18,7 @@ cclow:
 	cmpd	4,s
 	blo	false
 true:
-	ldd	@one
+	ldd	#1
 out:
 	ldx	,s
 	leas	6,s

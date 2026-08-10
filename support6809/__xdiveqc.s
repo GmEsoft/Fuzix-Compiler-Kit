@@ -85,7 +85,7 @@ absd:
 	beq ispos
 	leay 1,y		; count sign changes in Y
 negd:
-	subd @one		; negate d
+	subd #1			; negate d
 	coma
 	comb
 ispos:

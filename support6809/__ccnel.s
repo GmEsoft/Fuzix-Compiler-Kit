@@ -16,5 +16,5 @@ out:
 	tstb
 	jmp	,x
 true:
-	ldd	@one
+	ldd	#1
 	bra	out
