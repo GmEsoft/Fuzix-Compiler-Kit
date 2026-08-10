@@ -174,7 +174,7 @@ int main(int argc, char *argv[])
     if (u != 2)
         return 41;
     u = 5;
-    if (u %= -3 != 2)
+    if ((u %= -3) != 2)
         return 42;
 
     u = 255;
