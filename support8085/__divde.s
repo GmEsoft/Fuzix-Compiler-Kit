@@ -58,6 +58,7 @@ signfix:
 	ora	a
 	rp
 negate:
+	mov	a,h
 	cma
 	mov	h,a
 	mov	a,l

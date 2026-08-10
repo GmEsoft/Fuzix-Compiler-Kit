@@ -62,6 +62,7 @@ signfix:
 		or	a
 		ret	p
 negate:
+		ld	a,h
 		cpl
 		ld	h,a
 		ld	a,l
