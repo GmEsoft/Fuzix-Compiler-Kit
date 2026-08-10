@@ -192,5 +192,26 @@ int main(int argc, char *argv[])
     if (c != -1)
         return 45;
 
+    n = 10000;
+    if ((n /= 4) != 2500)
+        return 46;
+    if ((n %= 1000) != 500)
+        return 47;
+    i = -10000;
+    if ((i /= 4) != -2500)
+        return 48;
+    if ((i %= 1000)  != -500)
+        return 49;
+
+    u = 32;
+    if ((u /=4) != 8)
+        return 50;
+    if ((u %= 12) != 8)
+        return 51;
+    c = -32;
+    if ((c /= 4) != -8)
+        return 52;
+    if ((c %= 10) != -8)
+        return 53;
     return 0;
 }
