@@ -129,6 +129,17 @@ static void set_hl_value(uint16_t v)
 	hl_value = v;
 	hl_valid = 1;
 }
+
+static void set_l_value(uint8_t v)
+{
+	if (hl_valid == 1) {
+		hl_value &= 0xFF00;
+		hl_value |= v & 0xFF;
+	} else
+		invalidate_hl();
+}
+
+
 unsigned map_op(register unsigned op)
 {
 	switch(op) {
@@ -307,21 +318,21 @@ static void load_hl(uint16_t v)
 {
 	if (hl_valid == 1) {
 		if (hl_value == v) {
-			printf(";HL is already %u\n", v);
+			printf(";HL is already 0x%x\n", v);
 			return;
 		}
 		if ((hl_value & 0xFF) == (v & 0xFF)) {
-			opcode("mvi h,%u", v >> 8);
+			opcode("mvi h,0x%x", v >> 8);
 			return;
 		}
 		if ((hl_value & 0xFF00) == (v & 0xFF00)) {
-			opcode("mvi l,%u", v & 0xFF);
+			opcode("mvi l,0x%x", BYTE(v));
 			return;
 		}
 	}
 	/* TODO: There are some other odd cases to do later like when h
 	   holds half the value we need so we can mov h,l and l,h etc */
-	opcode("lxi h,%u", v);
+	opcode("lxi h,0x%x", v);
 	set_hl_value(v);
 }
 
@@ -329,21 +340,21 @@ static void load_de(uint16_t v)
 {
 	if (de_valid == 1) {
 		if (de_value == v) {
-			printf(";DE is already %u\n", v);
+			printf(";DE is already 0x%x\n", v);
 			return;
 		}
 		if ((de_value & 0xFF) == (v & 0xFF)) {
-			opcode("mvi d,%u", v >> 8);
+			opcode("mvi d,0x%x", v >> 8);
 			return;
 		}
 		if ((de_value & 0xFF00) == (v & 0xFF00)) {
-			opcode("mvi e,%u", v & 0xFF);
+			opcode("mvi e,0x%x", v & 0xFF);
 			return;
 		}
 	}
 	/* TODO: There are some other odd cases to do later like when h
 	   holds half the value we need so we can mov h,l and l,h etc */
-	opcode("lxi d,%u", v);
+	opcode("lxi d,0x%x", v);
 	set_de_value(v);
 }
 
@@ -351,21 +362,21 @@ static void load_bc(uint16_t v)
 {
 	if (bc_valid == 1) {
 		if (bc_value == v) {
-			printf(";BC is already %u\n", v);
+			printf(";BC is already 0x%x\n", v);
 			return;
 		}
 		if ((bc_value & 0xFF) == (v & 0xFF)) {
-			opcode("mvi b,%u", v >> 8);
+			opcode("mvi b,0x%x", v >> 8);
 			return;
 		}
 		if ((bc_value & 0xFF00) == (v & 0xFF00)) {
-			opcode("mvi c,%u", v & 0xFF);
+			opcode("mvi c,0x%x", BYTE(v));
 			return;
 		}
 	}
 	/* TODO: There are some other odd cases to do later like when h
 	   holds half the value we need so we can mov h,l and l,h etc */
-	opcode("lxi b,%u", v);
+	opcode("lxi b,0x%x", v);
 	set_bc_value(v);
 }
 
@@ -419,7 +430,7 @@ static void load_a(unsigned v)
 	if (v == 0)
 		opcode("xra a");
 	else
-		opcode("mvi a,%u", v);
+		opcode("mvi a,0x%x", v);
 }
 
 /* Might be making de/hl nodes pointers but that's also an expense on 8bit
@@ -1545,7 +1556,7 @@ static void write_mul(unsigned n)
 	unsigned pops = 0;
 	if ((n & 0xFF) == 0) {
 		opcode("mov h,l");
-		opcode("mvi l,0");
+		opcode("mvi l,0x0");
 		n >>= 8;
 	}
 	while(n > 1) {
@@ -1629,7 +1640,7 @@ static unsigned gen_fast_udiv(unsigned n, unsigned s)
 		return 1;
 	if (n == 256) {
 		opcode("mov l,h");
-		opcode("mvi h,0");
+		opcode("mvi h,0x0");
 		invalidate_hl();
 		return 1;
 	}
@@ -1653,11 +1664,11 @@ static unsigned gen_logicc(struct node *n, unsigned s, const char *op, unsigned 
 	if (s == 2) {
 		if (h == 0) {
 			if (code == 1)
-				opcode("mvi h,0");
+				opcode("mvi h,0x0");
 		}
 		else if (h == 255 && code != 3) {
 			if (code == 2)
-				opcode("mvi h,255");
+				opcode("mvi h,0xff");
 		} else {
 			opcode("mov a,h");
 			if (code == 3 && h == 255)
@@ -1669,10 +1680,10 @@ static unsigned gen_logicc(struct node *n, unsigned s, const char *op, unsigned 
 	}
 	if (l == 0) {
 		if (code == 1)
-			opcode("mvi l,0");
+			opcode("mvi l,0x0");
 	} else if (l == 255 && code != 3) {
 		if (code == 2)
-			opcode("mvi l,255");
+			opcode("mvi l,0xff");
 	} else {
 		opcode("mov a,l");
 		if (code == 3&& l == 255)
@@ -1694,7 +1705,7 @@ static unsigned gen_fast_remainder(unsigned n, unsigned s)
 		return 1;
 	}
 	if (n == 256) {
-		opcode("mvi h,0");
+		opcode("mvi h,0x0");
 		hl_value &= 0xFF;
 		return 1;
 	}
@@ -1770,7 +1781,7 @@ unsigned gen_direct(struct node *n)
 			/* We need to end up with the value in l if this is not NORETURN, also
 			   we can optimize constant a step more */
 			if (r->op == T_CONSTANT && nr)
-				opcode("mvi m,%u", ((unsigned)r->value) & 0xFF);
+				opcode("mvi m,0x%x", BYTE((unsigned)r->value));
 			else {
 				if (load_a_with(r) == 0)
 					return 0;
@@ -1982,7 +1993,7 @@ unsigned gen_direct(struct node *n)
 		if (s <= 2 && r->op == T_CONSTANT) {
 			if (r->value >= 8) {
 				opcode("mov h,l");
-				opcode("mvi l,0");
+				opcode("mvi l,0x0");
 			}
 			repeated_op("dad h", (r->value & 7));
 			return 1;
@@ -1993,7 +2004,7 @@ unsigned gen_direct(struct node *n)
 		/* >> by 8 unsigned */
 		if (s == 2 && (n->type & UNSIGNED) && r->op == T_CONSTANT && r->value == 8) {
 			opcode("mov l,h");
-			opcode("mvi h,0");
+			opcode("mvi h,0x0");
 			return 1;
 		}
 		/* 8085 has a signed right shift 16bit */
@@ -2388,7 +2399,7 @@ unsigned gen_shortcut(struct node *n)
 		if (s == 2 && r->op == T_CONSTANT) {
 			v = r->value;
 			if ((v & 0xFF00) == 0x0000)
-				opcode("mvi h,0");
+				opcode("mvi h,0x0");
 			else if ((v & 0xFF00) != 0xFF00) {
 				load_a(v >> 8);
 				opcode("ana b");
@@ -2397,7 +2408,7 @@ unsigned gen_shortcut(struct node *n)
 				opcode("mov h,b");
 
 			if ((v & 0xFF) == 0x00)
-				opcode("mvi l,0");
+				opcode("mvi l,0x0");
 			else if ((v & 0xFF) != 0xFF) {
 				load_a(v & 0xFF);
 				opcode("ana c");
@@ -2574,7 +2585,7 @@ unsigned gen_shortcut(struct node *n)
 		case T_SHLEQ:
 			if (r->op == T_CONSTANT) {
 				if (s == 1 && v >= 8) {
-					opcode("mvi c,0");
+					opcode("mvi c,0x0");
 					hl_from_reg(n, s);
 					return 1;
 				}
@@ -2593,7 +2604,7 @@ unsigned gen_shortcut(struct node *n)
 				}
 				if (v == 8) {
 					opcode("mov b,c");
-					opcode("mvi c,0");
+					opcode("mvi c,0x0");
 					hl_from_reg(n, s);
 					return 1;
 				}
@@ -2601,7 +2612,7 @@ unsigned gen_shortcut(struct node *n)
 					opcode("mov a,c");
 					repeated_op("add a", v - 8);
 					opcode("mov b,a");
-					opcode("mvi c,0");
+					opcode("mvi c,0x0");
 					hl_from_reg(n, s);
 					return 1;
 				}
@@ -2617,7 +2628,7 @@ unsigned gen_shortcut(struct node *n)
 		case T_SHREQ:
 			if (r->op == T_CONSTANT) {
 				if (v >= 8 && s == 1 && (n->type & UNSIGNED)) {
-					opcode("mvi c,0");
+					opcode("mvi c,0x0");
 					hl_from_reg(n, s);
 					return 1;
 				}
@@ -2628,7 +2639,7 @@ unsigned gen_shortcut(struct node *n)
 				}
 				if (v == 8 && (n->type & UNSIGNED)) {
 					opcode("mov c,b");
-					opcode("mvi b,0");
+					opcode("mvi b,0x0");
 					hl_from_reg(n, s);
 					return 1;
 				}
@@ -2712,7 +2723,7 @@ static unsigned gen_cast(struct node *n)
 	if (hl_valid == 1)
 		load_hl(hl_value & 0xFF);
 	else
-		opcode("mvi h,0");
+		opcode("mvi h,0x0");
 	return 1;
 }
 
@@ -3098,9 +3109,8 @@ unsigned gen_node(struct node *n)
 			load_hl(WORD(v));
 			return 1;
 		case 1:
-			hl_value &= 0xFF00;
-			hl_value |= v & 0xFF;
-			opcode("mvi l,%u", v & 0xFF);
+			set_l_value(BYTE(v));
+			opcode("mvi l,0x%x", BYTE(v));
 			return 1;
 		}
 		break;
