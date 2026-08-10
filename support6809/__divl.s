@@ -2,13 +2,13 @@
 	.code
 
 __divl:
-	clr	@tmp4		; Sign tracking
+	ldx	#0		; Sign tracking
 	exg	d,y
 	bita	#0x80
 	beq	nosignfix
 	exg	d,y
 	lbsr	__negatel
-	inc	@tmp4
+	leax	1,x
 	exg	d,y
 nosignfix:
 	sty	,--s
@@ -18,7 +18,7 @@ nosignfix:
 	;
 	lda	6,s
 	bpl	nosignfix2
-	inc	@tmp4
+	leax	1,x
 	ldd	8,s
 	subd	#1
 	std	8,s
@@ -32,9 +32,10 @@ nosignfix:
 	com	9,s
 nosignfix2:
 	leas	-5,s		; make room for workspace
-	tfr	s,x
+	stx	,--s		; save sign info
+	leax	2,s		; point past sign info
 	lbsr	div32x32
-	ldb	@tmp4
+	ldd	,s++
 	rorb
 	bcc	nosignfix3
 	ldy	11,s

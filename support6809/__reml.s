@@ -14,9 +14,10 @@ nosignfix:
 	;
 	;	Sign check
 	;
+	ldx	#0
 	lda	6,s
-	sta	@tmp4
 	bpl	nosignfix2
+	ldx	#1
 	ldd	8,s
 	subd	#1
 	std	8,s
@@ -30,14 +31,15 @@ nosignfix:
 	com	9,s
 nosignfix2:
 	leas	-5,s
-	tfr	s,x
+	stx	,--s
+	leax	2,s
 	lbsr	div32x32
 	;
 	;	Get the result
 	;
+	ldx	,s++
+	beq	done
 	ldy	1,s
-	lda	@tmp4
-	bpl	done
 	ldd	3,s
 	lbsr	__negatel
 pop4:
@@ -45,5 +47,6 @@ pop4:
 	leas	15,s
 	jmp	,x
 done:
+	ldy	1,s
 	ldd	3,s
 	bra	pop4
