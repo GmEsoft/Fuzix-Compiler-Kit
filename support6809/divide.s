@@ -10,9 +10,9 @@
 ;		shift dividend left (X)
 ;		rotate left into work (D)
 ;		set low bit of dividend (X)
-;		subtract divisor (@tmp1) from work
+;		subtract divisor (1,s) from work
 ;		if work < 0
-;			add divisor (@tmp1) back to work
+;			add divisor (1,s) back to work
 ;			clear lsb of X
 ;		end
 ;	end loop
