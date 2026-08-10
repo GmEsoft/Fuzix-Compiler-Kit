@@ -7,9 +7,10 @@
 ;
 ;	On entry the stack frame referenced by X looks like this
 ;
-;	6-9	32bit dividend (C compiler TOS)
-;	4,5	A return address
-;	0-3	32bit divisor
+;	12-15	32bit dividend (C compiler TOS)
+;	10,11	A return address
+;	5-9	32bit divisor
+;	0-4	workspace (also returned in 1-4,x)
 ;
 ;	The one trick here is that to save space and time we start
 ;	with DIVID,x hoilding the 32bit input value (N in the usual
@@ -18,13 +19,11 @@
 ;	resulting Q(n) bit into the bottom. After 32 cycles we throw N(0)
 ;	out and have shifted all of Q into the result.
 ;
-;	TODO: convert to be re-entrant by putting tmp2/tmp3 on stack
-;
 
-DIVIS		.equ	0
+DIVIS		.equ	5
 ;		4/5,x are a return address and it's easier to just leave
 ;		the gap
-DIVID		.equ	6
+DIVID		.equ	11
 
 		.dp
 
@@ -33,13 +32,13 @@ DIVID		.equ	6
 
 div32x32:
 		ldb #32		; 32 iterations for 32 bits
-		stb @tmp
+		stb ,x
 		clra
 		clrb
 		; Clear the working register (tmp2/tmp3)
 		; R = 0;
-		std @tmp2
-		std @tmp3
+		std 1,x
+		std 3,x
 loop:		; Shift the dividend left and set bit 0 assuming that
 		; R >= D
 		orcc #1
@@ -50,38 +49,38 @@ loop:		; Shift the dividend left and set bit 0 assuming that
 		; N(i) is now in carry
 		; R <<= 1; R(0) = N(i)
 		; Capture into the working register
-		rol @tmp3+1		; capturing high bit into the
-		rol @tmp3		; working register bottom
-		rol @tmp2+1
-		rol @tmp2
+		rol 4,x		; capturing high bit into the
+		rol 3,x		; working register bottom
+		rol 2,x
+		rol 1,x
 		; Do a 32bit subtract but skip writing the high 16bits
 		; back until we know the comparison
 		;
 		; R - D
 		;
-		ldd @tmp3
+		ldd 3,x
 		subd DIVIS+2,x
-		std @tmp3
-		ldd @tmp2
+		std 3,x
+		ldd 1,x
 		sbcb DIVIS+1,x
 		sbca DIVIS,x
 		; Want to subtract (R - D >= 0)
 		bcc skip
 		; No subtract, so put back the low 16bits we mushed
-		ldd @tmp3
+		ldd 3,x
 		addd DIVIS+2,x
-		std @tmp3
+		std 3,x
 		; We guessed the wrong way for Q(i). Clear Q(i) which is
 		; in the lowest bit and we know is set so using dec is safe
 		dec DIVID+3,x
 done:
-		dec @tmp
+		dec ,x
 		bne loop
 		rts
 		; We do want to subtract - write back the other bits
 skip:
 		; R -= D
-		std @tmp2
-		dec @tmp
+		std 1,x
+		dec ,x
 		bne loop
 		rts

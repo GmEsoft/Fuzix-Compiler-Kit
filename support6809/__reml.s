@@ -29,20 +29,21 @@ nosignfix:
 	com	8,s
 	com	9,s
 nosignfix2:
+	leas	-5,s
 	tfr	s,x
 	lbsr	div32x32
 	;
 	;	Get the result
 	;
-	ldy	@tmp2
+	ldy	1,s
 	lda	@tmp4
 	bpl	done
-	ldd	@tmp3
+	ldd	3,s
 	lbsr	__negatel
 pop4:
-	ldx	4,s
-	leas	10,s
+	ldx	9,s
+	leas	15,s
 	jmp	,x
 done:
-	ldd	@tmp3
+	ldd	3,s
 	bra	pop4

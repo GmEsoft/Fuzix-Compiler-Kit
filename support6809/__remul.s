@@ -3,11 +3,12 @@
 __remul:
 	std	,--s
 	sty	,--s
+	leas	-5,s
 	tfr	s,x
 	lbsr	div32x32
-	; Result is in tmp2/tmp3
-	ldy	@tmp2
-	ldd	@tmp3
-	ldx	4,x
-	leas	10,s
+	; Result is in 1-4,x
+	ldy	1,x
+	ldd	3,x
+	ldx	9,x
+	leas	15,s
 	jmp	,x

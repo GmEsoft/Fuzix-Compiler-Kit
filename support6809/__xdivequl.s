@@ -4,21 +4,21 @@
 	.export __xdivequl
 	.code
 __xdivequl:
-	leas	-10,s		; Make space for the frame expected
-	std	2,s
-	sty	0,s
+	leas	-15,s		; Make space for the frame expected
+	std	7,s
+	sty	5,s
 	ldd	,x
-	std	6,s
+	std	11,s
 	ldd	2,x
-	std	8,s
+	std	13,s
 	stx	,--s
 	leax	2,s
 	lbsr	div32x32
-	ldy	6,x
-	ldd	8,x
+	ldy	11,x
+	ldd	13,x
 	ldx	,s++
 	sty	,x
 	std	2,x
 
-	leas	10,s
+	leas	15,s
 	rts

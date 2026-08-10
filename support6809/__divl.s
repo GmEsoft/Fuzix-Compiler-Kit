@@ -31,19 +31,20 @@ nosignfix:
 	com	8,s
 	com	9,s
 nosignfix2:
+	leas	-5,s		; make room for workspace
 	tfr	s,x
 	lbsr	div32x32
 	ldb	@tmp4
 	rorb
 	bcc	nosignfix3
-	ldy	6,s
-	ldd	8,s
+	ldy	11,s
+	ldd	13,s
 	lbsr	__negatel
 out:
-	ldx	4,s
-	leas	10,s
+	ldx	9,s
+	leas	15,s
 	jmp	,x
 nosignfix3:
-	ldy	6,s
-	ldd	8,s
+	ldy	11,s
+	ldd	13,s
 	bra	out
