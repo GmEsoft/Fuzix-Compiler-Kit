@@ -11,11 +11,10 @@ __remeqxuc:
 	lda #0
 	sep #0x20
 	lda 0,x
-	stz @tmp+1
 	rep #0x20
 	phx
 	ldx @tmp
-	jsr __remxu
+	jsr __remx
 	plx
 	sep #0x20
 	sta 0,x
