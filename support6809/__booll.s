@@ -6,6 +6,6 @@ __booll:
 	subd	#0
 	beq	false	; If this passes then D is already zero
 true:
-	ldd	#0
+	ldd	#1
 false:
 	rts
