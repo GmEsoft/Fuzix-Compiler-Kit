@@ -8,10 +8,10 @@ __minusl:
 	; Subtract Y:D from TOS
 	std ,--s
 	sty ,--s
-	ldd 6,s		; low
+	ldd 8,s		; low
 	subd 2,s	; - low
 	exg d,y
-	ldd 4,s
+	ldd 6,s
 	sbcb 1,s
 	sbca 0,s
 	exg d,y
