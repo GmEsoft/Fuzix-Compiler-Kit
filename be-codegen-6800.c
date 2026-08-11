@@ -1407,8 +1407,10 @@ unsigned gen_shortcut(struct node *n)
 		return 1;
 #endif
 	case T_RSTORE:
-		if (can_load_r_with(r, 0)) {
-			load_u_with(r, 0);
+		if (nr && can_load_r_with(r, 0)) {
+			v = load_u_with(r, 0);
+			if (v)
+				printf("\tleau %u,u\n", v);
 			return 1;
 		}
 		codegen_lr(r);
