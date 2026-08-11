@@ -16,5 +16,5 @@ __minusl:
 	sbca 0,s
 	exg d,y
 	ldx 4,s
-	leas 8,s
-	rts
+	leas 10,s
+	jmp ,x

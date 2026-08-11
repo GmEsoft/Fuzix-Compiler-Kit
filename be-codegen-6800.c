@@ -509,8 +509,15 @@ unsigned gen_direct(struct node *n)
 		}
 		if (s == 2 && r->op == T_LOCAL) {
 			v = r->value + sp;
-			if (!cpu_is_09)
-				v++;
+			if (cpu_is_09) {
+				/* D holds a constant, want to add sp + v */
+				printf("\tleax %u,s\n", v);
+				puts("\tstx ,--s\n\taddd ,s++\n");
+				invalidate_x();
+				invalidate_d();
+				return 1;
+			}
+			v++;
 			if (cpu_has_d)
 				puts("\tsts @tmp\n\taddd @tmp");
 			else
