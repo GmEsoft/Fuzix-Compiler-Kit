@@ -84,7 +84,7 @@
  *
  *	The NAMCO processors (60A1, 63A1) also add
  *	12/13		addx 1,sp
- *	
+ *
  *	For 6800 see Byte 12/77 article
  */
 
@@ -371,7 +371,7 @@ static uint8_t clock_count[256][4] = {
     { 4, 4, 4, 4 },			/* ANDA */
     { 4, 4, 4, 4 },			/* BITA */
     { 4, 4, 4, 4 },			/* LDAA */
-    { 4, 4, 4, 4 },			/* STAA */
+    { 5, 4, 4, 4 },			/* STAA */
     { 4, 4, 4, 4 },			/* EORA */
     { 4, 4, 4, 4 },			/* ADCA */
     { 4, 4, 4, 4 },			/* ORAA */
@@ -1879,7 +1879,7 @@ static int m6800_execute_one(struct m6800 *cpu)
                 /* The apparent store immediates (and 68HC11 XGDX) break the
                    decode rule */
                 if ((opcode & 0xFF) != 0x8F && (opcode & 0xFF) != 0xCF) {
-                    data16 = m6800_do_read(cpu, cpu->pc++) << 8; 
+                    data16 = m6800_do_read(cpu, cpu->pc++) << 8;
                     data16 |= m6800_do_read(cpu, cpu->pc++);
                 }
                 break;
@@ -1905,7 +1905,7 @@ static int m6800_execute_one(struct m6800 *cpu)
         case 0xB0:	/* Extended */
         case 0xF0:	/* Extended */
             /* Ordering ? */
-            data16 = m6800_do_read(cpu, cpu->pc++) << 8; 
+            data16 = m6800_do_read(cpu, cpu->pc++) << 8;
             data16 |= m6800_do_read(cpu, cpu->pc++);
             break;
     }
@@ -1938,7 +1938,7 @@ static int m6800_execute_one(struct m6800 *cpu)
             return clocks;
         }
     }
-    
+
     switch(opcode) {
     case 0x01:	/* NOP */
         /* No flags */
@@ -2021,7 +2021,7 @@ static int m6800_execute_one(struct m6800 *cpu)
            as if I was set for one instruction regardless of prev/new state) */
         cpu->p = cpu->a | 0xC0;
         return clocks;
-    case 0x07: /* TPA */    
+    case 0x07: /* TPA */
         cpu->a = cpu->p | 0xC0;
         return clocks;
     case 0x1808:/* INY */
@@ -3323,12 +3323,12 @@ static int m6800_execute_one(struct m6800 *cpu)
         m6800_logic16(cpu, REG_D);
         return clocks;
     case 0x18DE:/* LDY direct */
-        cpu->y = m6800_do_read(cpu, data8) << 8; 
+        cpu->y = m6800_do_read(cpu, data8) << 8;
         cpu->y |= m6800_do_read(cpu, data8 + 1);
         m6800_logic16(cpu, cpu->y);
         return clocks;
     case 0xDE:	/* LDX direct */
-        cpu->x = m6800_do_read(cpu, data8) << 8; 
+        cpu->x = m6800_do_read(cpu, data8) << 8;
         cpu->x |= m6800_do_read(cpu, data8 + 1);
         m6800_logic16(cpu, cpu->x);
         return clocks;
@@ -3815,7 +3815,7 @@ static void m68hc11_e_clock(struct m6800 *cpu)
  *	Execute a machine cycle and return how many clocks
  *	we took doing it.
  */
- 
+
 int m68hc11_execute(struct m6800 *cpu)
 {
     int cycles, i;
@@ -3836,7 +3836,7 @@ int m68hc11_execute(struct m6800 *cpu)
     /* Run the timers for these E cycles */
     for (i = 0; i < cycles; i++)
         m68hc11_e_clock(cpu);
-        
+
     return cycles;
 }
 
@@ -3928,7 +3928,7 @@ void m68hc11e_reset(struct m6800 *cpu, int type, uint8_t cfg, const uint8_t *rom
     default:
         fprintf(stderr, "Invalid 68HC11E variant.\n");
         exit(1);
-    }    
+    }
 
     cpu->io.lock = 64;		/* Some stuff locks after 64 cycles */
 
@@ -4029,7 +4029,7 @@ void m68hc11a_reset(struct m6800 *cpu, int type, uint8_t cfg, const uint8_t *rom
 /*
  *	6803 device model
  */
- 
+
 
 /* Counter interrupts */
 static void m6800_counter_ints(struct m6800 *cpu)
@@ -4049,7 +4049,7 @@ static void m6800_counter_ints(struct m6800 *cpu)
         m6800_clear_interrupt(cpu, IRQ_ICF);
 }
 
-/* SCI interrupts */ 
+/* SCI interrupts */
 static void m6800_sci_ints(struct m6800 *cpu)
 {
     int irq = 0;
@@ -4158,7 +4158,7 @@ uint8_t m6800_read_io(struct m6800 *cpu, uint8_t addr)
             0x1B becomes TCSR3
             0x1C becomes TCR
             0x1D becomes T2UP
-            
+
             And latest of them
             0x1e becomes TXRXCSR2
             0x1f becomes test
@@ -4261,7 +4261,7 @@ void m6800_write_io(struct m6800 *cpu, uint8_t addr, uint8_t val)
 
 #ifdef WITH_HC11
 
-/* SCI interrupts */ 
+/* SCI interrupts */
 static void m68hc11_sci_ints(struct m6800 *cpu)
 {
     int irq = 0;
@@ -4768,7 +4768,7 @@ uint8_t m6800_do_read(struct m6800 *cpu, uint16_t addr)
         if (addr >= cpu->io.rombase && (cpu->io.config_latch & CFG_ROMON))
             return cpu->io.rom[addr - cpu->io.rombase];
         return m6800_read(cpu, addr);
-#endif        
+#endif
     }
 }
 
@@ -4794,7 +4794,7 @@ void m6800_do_write(struct m6800 *cpu, uint16_t addr, uint8_t val)
         else
             m6800_write(cpu, addr, val);
         break;
-#ifdef WITH_HC11        
+#ifdef WITH_HC11
     case INTIO_HC11:
         /* No emulation of writable EEROM yet */
         if (addr >= cpu->io.rombase && (cpu->io.config_latch & CFG_ROMON))
@@ -4848,6 +4848,6 @@ uint8_t m6800_do_debug_read(struct m6800 *cpu, uint16_t addr)
         if (addr >= cpu->io.rombase && (cpu->io.config_latch & CFG_ROMON))
             return cpu->io.rom[addr - cpu->io.rombase];
         return m6800_debug_read(cpu, addr);
-#endif        
+#endif
     }
 }
