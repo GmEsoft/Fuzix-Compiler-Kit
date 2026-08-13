@@ -310,7 +310,8 @@ struct node *gen_rewrite_node(struct node *n)
 		squash_right(n, T_NDEREF);	/* n->value becomes the local ref */
 		return n;
 	}
-	if (cpu_is_09 && n->value == 0 && (op == T_EQ || op == T_EQPLUS) && l->op == T_NREF) {
+	/* This is trickier with 32bit values so defer that for now */
+	if (cpu_is_09 && nt < CLONG && n->value == 0 && (op == T_EQ || op == T_EQPLUS) && l->op == T_NREF) {
 		squash_left(n, T_NEQ);		/* n->value becomes the local ref */
 		return n;
 	}
