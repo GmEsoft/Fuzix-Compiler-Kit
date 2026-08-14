@@ -3,11 +3,10 @@
 __switchl:
 	; X holds the switch table, Y:D the value
 	; Juggle as we are short of regs here - TODO find a nicer approach
-	leas -4,s
-	sty ,s			; Save a reg for scratch
-	ldy ,x++		; Get count
-	sty 2,s			; Save count
-	ldy ,s++		; Recover saved pointer
+	pshs d,u		; trick: reserve 2 bytes; save D
+	ldd ,x++		; Get count
+	std 2,s			; Save count in reserved space
+	puls d			; Recover D
 	inc 1,s
 	bra moveon
 next:
