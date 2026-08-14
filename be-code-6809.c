@@ -884,7 +884,7 @@ unsigned gen_fast_div(unsigned n, unsigned s, unsigned u)
 			n >>= 1;
 		}
 	} else {
-		printf("\tbita #0x80\n\tbeq X%u\n", ++label);
+		printf("\ttsta\n\tbpl X%u\n", ++label);
 		printf("\taddd #%u\nX%u:\n", (n - 1) & 0xFFFF, label);
 		while(n > 1) {
 			puts("\tasra\n\trorb");
