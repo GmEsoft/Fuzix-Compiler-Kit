@@ -524,7 +524,7 @@ unsigned gen_direct(struct node *n)
 			if (cpu_is_09) {
 				/* D holds a constant, want to add sp + v */
 				printf("\tleax %u,s\n", v);
-				puts("\tstx ,--s\n\taddd ,s++\n");
+				puts("\tpshs x\n\taddd ,s++\n");
 				invalidate_x();
 				invalidate_d();
 				return 1;

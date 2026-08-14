@@ -96,10 +96,8 @@ norip16:
 ;	Into our working register
 ;
 is_done:
-	ldd ,s++	; discard
-	ldy ,s++
-	ldd ,s++
-	ldx ,s++
+	puls d,y	; d is dicarded
+	puls d,x
 	leas 4,s
 	jmp ,x
 

@@ -28,7 +28,7 @@ nosignfix:
 	com	9,s
 nosignfix2:
 	leas	-5,s
-	stx	,--s
+	pshs	x
 	leax	2,s
 	lbsr	div32x32
 	;

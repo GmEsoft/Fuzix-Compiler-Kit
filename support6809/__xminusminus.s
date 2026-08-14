@@ -7,7 +7,7 @@
 
 __xmminus:
 __xmminusu:
-	std ,--s
+	pshs d
 	ldd ,x
 	tfr d,y
 	subd ,s++

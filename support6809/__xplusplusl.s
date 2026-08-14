@@ -8,11 +8,11 @@
 	.code
 __xplusplusl:
 __xplusplusul:
-	std ,--s		; save original D
+	pshs d			; save original D
 	ldd ,x
-	std ,--s		; save original high
+	pshs d			; save original high
 	ldd 2,x
-	std ,--s		; save original low
+	pshs d			; save original low
 	ldd 4,s			; get original D back
 	; add Y,D to ,X
 	addd 2,x		; add low words

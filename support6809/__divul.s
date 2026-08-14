@@ -1,8 +1,8 @@
 	.export __divul
 	.code
 __divul:
-	std	,--s
-	sty	,--s
+	pshs	d
+	pshs	y
 	leas	-5,s		; required workspace
 	tfr	s,x
 	lbsr	div32x32

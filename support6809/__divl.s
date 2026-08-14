@@ -29,10 +29,10 @@ nosignfix:
 	com	9,s
 nosignfix2:
 	leas	-5,s		; make room for workspace
-	stx	,--s		; save sign info
+	pshs	x		; save sign info
 	leax	2,s		; point past sign info
 	lbsr	div32x32
-	ldd	,s++
+	puls	d
 	rorb
 	bcc	nosignfix3
 	ldy	11,s
