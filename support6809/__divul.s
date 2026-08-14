@@ -2,8 +2,7 @@
 	.code
 __divul:
 	pshs	d
-	pshs	y
-	leas	-5,s		; required workspace
+	pshs	cc,a,b,x,y	; trick: push y, reserve 5 byte workspace
 	tfr	s,x
 	lbsr	div32x32
 	ldy	11,x
