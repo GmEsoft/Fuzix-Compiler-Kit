@@ -38,8 +38,7 @@ __xremeqc:
 	ldx -1,x		; so the byte we want ends up low
 	exg d,x
 	sex
-	bita #0x80
-	beq dorem
+	bpl dorem
 negmod:
 	bsr negd
 	exg d,x
@@ -81,8 +80,8 @@ dodiv:
 	bra store
 	
 absd:
-	bita #$80
-	beq ispos
+	tsta
+	bpl ispos
 	leay 1,y		; count sign changes in Y
 negd:
 	subd #1			; negate d

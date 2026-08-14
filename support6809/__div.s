@@ -57,8 +57,8 @@ __div:
 	bra pop2
 
 absd:
-	bita #$80
-	beq ispos
+	tsta
+	bpl ispos
 	leay 1,y		; count sign changes in Y
 negd:
 	subd #1			; negate d
