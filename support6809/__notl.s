@@ -3,7 +3,7 @@
 __notl:
 	cmpy	#0
 	bne	false
-	cmpd	#0
+	subd	#0
 	beq	true
 false:
 	clra
