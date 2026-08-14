@@ -28,7 +28,7 @@
 ;
 
 __notc:
-	cmpb	#0
+	tstb
 	bra	booleq
 __not:
 	cmpd	#0
@@ -39,7 +39,7 @@ ret1:
 	rts
 
 __boolc:
-	cmpb	#0
+	tstb
 	bra	boolne
 __bool:
 	cmpd	#0
