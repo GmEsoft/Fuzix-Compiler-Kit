@@ -437,3 +437,9 @@ L%1:
 =
 L%1:
 	ldd %2
+
+# Comes up a lot short-circuiting MUL
+	clr%1
+	ld%1 %2
+=
+	ld%1 %2
