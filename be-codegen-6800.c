@@ -226,10 +226,11 @@ struct node *gen_rewrite_node(struct node *n)
 		}
 	}
 	/* regptr++  The size will always be the true size for ++ and const */
-	if (op == T_DEREF && r->op == T_PLUSPLUS && r->left->op == T_REG)
+	if (op == T_DEREF && r->op == T_PLUSPLUS && r->left->op == T_REG &&
+		r->right->value == get_size(n->type))
 	{
 		n->op = T_RDEREFPLUS;
-		n->value = r->left->value;
+		n->value = r->right->value;
 		free_node(r->left);
 		free_node(r->right);
 		free_node(r);
@@ -237,7 +238,10 @@ struct node *gen_rewrite_node(struct node *n)
 		return n;
 	}
 	/* *regptr++ =  again the size will be const and right */
-	if (op == T_EQ && l->op == T_PLUSPLUS && l->left->op == T_REG)
+	/* Must only do this when the size matches the add (could in theory
+	   also do stb ,u++ ?? */
+	if (op == T_EQ && l->op == T_PLUSPLUS && l->left->op == T_REG &&
+		l->left->value == get_size(n->type))
 	{
 		n->op = T_REQPLUS;
 		n->value = l->left->value;
