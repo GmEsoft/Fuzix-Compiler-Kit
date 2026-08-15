@@ -138,7 +138,7 @@ void add_d_const(register uint16_t n)
 
 	d_valid = 0;
 
-	if (cpu_has_d)
+	if (cpu_has_d && (n & 0xFF))
 		printf("\taddd #%u\n", n);
 	else {
 		if (n & 0xFF) {

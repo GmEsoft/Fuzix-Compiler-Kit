@@ -127,7 +127,11 @@ void add_d_const(uint16_t n)
 
 	d_valid = 0;
 
-	printf("\taddd #%u\n", n);
+	if (n & 0xFF)
+		printf("\taddd #%u\n", n);
+	else
+		printf("\tadda #%u\n", n >> 8);
+
 	if (b_val + (n & 0xFF) < b_val)
 		a_val += (n >> 8) + 1;
 	else
