@@ -1449,6 +1449,12 @@ unsigned gen_shortcut(struct node *n)
 			break;
 		}
 		return 1;
+	/* Try and optimise 6809 direct stores of U to local and name */
+	case T_LSTORE:
+	case T_NSTORE:
+		if (r->op == T_RREF && s == 2 && nr)
+			return op16u_on_node(n, "st", n->value);
+		break;
 	}
 	return 0;
 }

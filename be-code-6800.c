@@ -534,7 +534,7 @@ unsigned make_local_ptr(unsigned off, unsigned rlim)
 /* Get pointer to the top of stack. We can optimize this in some cases
    when we track but it will be limited. The 6800 is quite weak on ops
    between register so we sometimes need to build ops against top of stack.
-   
+
    This needs some care because the stack pointer has already been adjusted
    in codegen-6800 to allow for the removal of the data, thus we actually
    need to offset by the passed size */
@@ -706,6 +706,12 @@ unsigned op16y_on_node(register struct node *r, const char *op, unsigned off)
 		return 0;
 	}
 	return 1;
+}
+
+unsigned op16u_on_node(register struct node *r, const char *op, unsigned off)
+{
+	error("ur");
+	return 0;
 }
 
 unsigned write_op(register struct node *r, const char *op, const char *op2, unsigned off)
@@ -1066,7 +1072,7 @@ static unsigned do_fast_mul(unsigned s, unsigned n)
 			puts("\tlslb\n\trola");
 			return 1;
 		case 3:
-			if (cpu_has_d) { 
+			if (cpu_has_d) {
 				puts("\tstd @tmp\n\tlslb\n\trola\n\taddd @tmp");
 				return 1;
 			}

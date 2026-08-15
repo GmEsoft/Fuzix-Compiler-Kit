@@ -98,6 +98,7 @@ extern unsigned make_local_ptr(unsigned off, unsigned rlim);
 extern unsigned op8_on_node(struct node *r, const char *op, unsigned off);
 extern unsigned op16_on_node(struct node *r, const char *op, const char *op2, unsigned off);
 extern unsigned op16d_on_node(struct node *r, const char *op, const char *op2, unsigned off);
+extern unsigned op16u_on_node(struct node *r, const char *op, unsigned off);
 extern unsigned op16y_on_node(struct node *r, const char *op, unsigned off);
 extern unsigned write_op(struct node *r, const char *op, const char *op2, unsigned off);
 extern unsigned write_opd(struct node *r, const char *op, const char *op2, unsigned off);

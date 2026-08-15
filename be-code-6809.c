@@ -441,25 +441,35 @@ unsigned op16d_on_node(struct node *r, const char *op, const char *op2, unsigned
 	return 1;
 }
 
-unsigned op16y_on_node(struct node *r, const char *op, unsigned off)
+static unsigned op16r_on_node(struct node *r, char reg, const char *op, unsigned off)
 {
 	unsigned v = r->value;
 	switch(r->op) {
 	case T_LSTORE:
 		invalidate_mem();
 	case T_LREF:
-		printf("\t%sy %u,s\n", op, v + off + sp);
+		printf("\t%s%c %u,s\n", op, reg, v + off + sp);
 		break;
 	case T_NSTORE:
 		invalidate_mem();
 	case T_CONSTANT:
 	case T_NREF:
 	case T_NAME:
-		printf("\t%sy %s\n", op, addr_form(r, off, 2));
+		printf("\t%s%c %s\n", op, reg, addr_form(r, off, 2));
 	default:
 		return 0;
 	}
 	return 1;
+}
+
+unsigned op16u_on_node(struct node *r, const char *op, unsigned off)
+{
+	return op16r_on_node(r, 'u', op, off);
+}
+
+unsigned op16y_on_node(struct node *r, const char *op, unsigned off)
+{
+	return op16r_on_node(r, 'y', op, off);
 }
 
 unsigned write_op(struct node *r, const char *op, const char *op2, unsigned off)
