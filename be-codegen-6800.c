@@ -411,10 +411,17 @@ static unsigned gen_add32(unsigned long v)
 	if (cpu_has_y) {
 		if (l) {
 			add_d_const(l);
-			swap_d_y();
-			printf("\tadcb #%u\n", h & 0xFF);
-			printf("\tadca #%u\n", (h >> 8) & 0xFF);
-			swap_d_y();
+			if (cpu == 6809) {
+				printf("\tbcc X%u\n", ++label);
+				printf("\tleay 1,y\nX%u:\n", label);
+				if (h)
+					printf("\tleay %u,y\n", h);
+			} else {
+				swap_d_y();
+				printf("\tadcb #%u\n", h & 0xFF);
+				printf("\tadca #%u\n", (h >> 8) & 0xFF);
+				swap_d_y();
+			}
 		} else if (cpu_has_lea)
 			printf("\tleay %u,y\n", h);
 		else {

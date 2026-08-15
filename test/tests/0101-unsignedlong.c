@@ -29,6 +29,8 @@ long test_uge(unsigned long a, unsigned long b)
 
 int main(int argc, char *argv[])
 {
+    unsigned long n;
+
     if (test_ult(33, 11) == 1)
         return 1;
     if (test_ult(0xFFFF0000UL, 0xFFUL) == 1)
@@ -70,6 +72,14 @@ int main(int argc, char *argv[])
         return 19;
     if (test_ule(0xFFEEDDCC, 0xFFEEDDCC) == 0)
         return 20;
+
+    /* Some quick carry roll tests */
+    n = 65535;
+    if (n + 1 != 65536)
+        return 21;
+    n = 65534;
+    if (n + 1 != 65535)
+        return 22;
 
     return 0;
 }
