@@ -75,7 +75,7 @@
  *		copt.cpuname
  *		cpuname/lib/
  *		cpuname/include/
- *		
+ *
  *	For the native compiler it gets built single CPU supporting
  *	as /bin/ccc /lib/cpp /lib/lib*.a /usr/include etc, but other processors
  *	are scanned in the usual rule.
@@ -137,6 +137,10 @@ const char *def6800[] = { "__6800__", "__6800__", NULL };
 const char *def6803[] = { "__6803__", NULL };
 const char *def68hc11[] = { "__68hc11__", "__6803__", NULL };
 const char *def6809[] = { "__6809__", NULL };
+const char *feat6809[] = {
+	"pic",
+	NULL
+};
 const char *def8080[] = { "__8080__", NULL };
 const char *def8085[] = { "__8085__", NULL };
 const char *defsm83[] = { "__sm83__", NULL };
@@ -199,8 +203,8 @@ struct cpu_table cpu_rules[] = {
 	{ "6800", "6800", ".6800", "lib6800.a", "6800", def6800, ld6800, "6800" , 0, NULL},
 	{ "6803", "6800", ".6800", "lib6803.a", "6803", def6803, ld6800, "6803" , 1, NULL},
 	/* Until we do 6309 specifics */
-	{ "6309", "6809", ".6809", "lib6809.a", "6809", def6809, ld6809, "6809" , 1, NULL},
-	{ "6809", "6809", ".6809", "lib6809.a", "6809", def6809, ld6809, "6809" , 1, NULL},
+	{ "6309", "6809", ".6809", "lib6809.a", "6809", def6809, ld6809, "6809" , 1, feat6809},
+	{ "6809", "6809", ".6809", "lib6809.a", "6809", def6809, ld6809, "6809" , 1, feat6809},
 	{ "68hc11", "hc11", ".6800", "lib68hc11.a", "68hc11", def68hc11, ld6800, "6811" , 1, NULL},
 	{ "8080", "8080", ".8080", "lib8080.a", "8080", def8080, ld8080, "8080" , 0, NULL},
 	{ "8085", "8080", ".8080", "lib8085.a", "8085", def8085, ld8080, "8085" , 0, NULL},
@@ -374,7 +378,7 @@ static void set_for_processor(struct cpu_table *r)
 	cpuset = r->set;
 	cpudot = r->cpudot;
 	cpudir = r->cpudir;
-	cpulib = r->lib;	
+	cpulib = r->lib;
 	cpudef = r->defines;
 	ldopts = r->ldopts;
 	cpucode = r->cpucode;
@@ -987,7 +991,7 @@ void find_opt(const char *p)
 	}
 	usage();
 }
-		
+
 int main(int argc, char *argv[]) {
 	char **p = argv;
 	unsigned c;
@@ -1082,7 +1086,7 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'm':
 			cpu = *p + 2;
-			break;	
+			break;
 		case 'M':
 			mapfile = 1;
 			break;
