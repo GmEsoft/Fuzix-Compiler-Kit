@@ -136,6 +136,6 @@
 
 	tfr d,u
 ;
-	trf u,d
+	tfr u,d
 =
 	tfr d,u
