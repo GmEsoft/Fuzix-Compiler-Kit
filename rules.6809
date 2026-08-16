@@ -17,6 +17,24 @@
 	jmp L%1
 
 # Branches
+	lbra %1
+%1:
+=
+%1:
+
+	lbra %2
+%1:
+%2:
+=
+%1:
+%2:
+
+	lbra L%1
+	lbra L%2
+=
+	lbra L%1
+
+# Branches
 	bra %1
 %1:
 =
@@ -80,3 +98,44 @@
 	ldd %2,x
 	ldx _%4
 	subd %3,x
+
+# -- handling that we don't clean up as a subtree (should move into
+# compiler eventually)
+# Can only partially fix this as for the ldx n,s cases the pshs d moves
+# the stack pointer and offset changes
+	ldx _%1
+	ldd %2,x
+	pshs d
+	ldx _%1
+	ldd %3,x
+	jsr __minus
+=
+	ldx _%1
+	ldd %2,x
+	subd %3,x
+
+	ldx _%1
+	ldd %2,x
+	pshs d
+	ldx _%4
+	ldd %3,x
+	jsr __minus
+=
+	ldx _%1
+	ldd %2,x
+	ldx _%4
+	subd %3,x
+
+# There is no operation that loads D with something affected by D so this
+# is ok to peephole
+	puls d
+	pshs d
+	ldd %1
+=
+	ldd %1
+
+	tfr d,u
+;
+	trf u,d
+=
+	tfr d,u
