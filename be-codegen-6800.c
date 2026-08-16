@@ -1460,7 +1460,7 @@ unsigned gen_shortcut(struct node *n)
 	case T_LSTORE:
 	case T_NSTORE:
 		if (r->op == T_RREF && s == 2 && nr)
-			return op16u_on_node(n, "st", n->value);
+			return op16u_on_node(n, "st", 0);
 		break;
 	}
 	return 0;
