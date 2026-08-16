@@ -53,3 +53,30 @@
 	exg d,y
 =
 	sty 0,x
+
+# -- handling that we don't clean up as a subtree (should move into
+# compiler eventually)
+# Can only partially fix this as for the ldx n,s cases the pshs d moves
+# the stack pointer and offset changes
+	ldx _%1
+	ldd %2,x
+	pshs d
+	ldx _%1
+	ldd %3,x
+	lbsr __minus
+=
+	ldx _%1
+	ldd %2,x
+	subd %3,x
+
+	ldx _%1
+	ldd %2,x
+	pshs d
+	ldx _%4
+	ldd %3,x
+	lbsr __minus
+=
+	ldx _%1
+	ldd %2,x
+	ldx _%4
+	subd %3,x
