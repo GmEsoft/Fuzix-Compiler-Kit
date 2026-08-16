@@ -6,6 +6,16 @@
 #include "backend.h"
 #include "backend-6800.h"
 
+void push_d(void)
+{
+	puts("\tpshs d");
+}
+
+void pop_d(void)
+{
+	puts("\tpuls d");
+}
+
 unsigned label;		/* Used to hand out local labels in the form X%u */
 
 /*
@@ -774,30 +784,34 @@ unsigned load_u_with(struct node *r, unsigned off)
 	return load_r_with('u', r, off);
 }
 
+/* 6809 we have SUBD and access to lots of things */
 unsigned cmp_direct(struct node *n, const char *uop, const char *op)
 {
-	unsigned s = get_size(n->right->type);
-	unsigned v = n->right->value;
+	struct node *r = n->right;
+	unsigned s = get_size(r->type);
+	unsigned v = r->value;
+	unsigned zop = 0;
 
-	if (n->right->op != T_CONSTANT)
+	if (s == 4)
 		return 0;
-	if (n->right->type & UNSIGNED)
+
+	if (r->type & UNSIGNED)
 		op = uop;
-	if (s == 1) {
-		printf("\tcmpb #%u\n", v & 0xFF);
+
+	if (v == 0 && s == 2 && r->op == T_CONSTANT)
+		zop = 1;
+	else if (s == 1 && op8_on_node(r, "sub", 0) == 0)
+		return 0;
+	else if (s == 2 && op16d_on_node(r, "sub", "sbc", 0) == 0)
+		return 0;
+	if (!zop)
 		printf("\t%s %s\n", jsr_op, op);
-		n->flags |= ISBOOL;
-		invalidate_b();
-		return 1;
-	}
-	if (s == 2) {
-		printf("\tsubd #%u\n", v & 0xFFFF);
-		printf("\t%s %s\n", jsr_op, op);
-		n->flags |= ISBOOL;
-		invalidate_work();
-		return 1;
-	}
-	return 0;
+	else
+		printf("\t%s %s0\n", jsr_op, op);
+	n->flags |= ISBOOL;
+	modify_a(0);
+	invalidate_b();
+	return 1;
 }
 
 /*
@@ -832,7 +846,7 @@ void write_mul(unsigned n)
 	while(n > 1) {
 		if (n & 1) {
 			pops++;
-			puts("\tpshs d");
+			push_d();
 		}
 		puts("\tlslb\n\trola");
 		n >>= 1;
@@ -927,11 +941,10 @@ unsigned cmp_op(struct node *n, const char *uop, const char *op)
 	if (s > 2)	/* For now anyway */
 		return 0;
 	/* We can do this versus s+ or s++ */
-	/* FIXME: 6809 has cmpd unlike 6803 */
 	if (s == 1)
-		op8_on_tos("cmp");
+		op8_on_tos("sub");
 	else if (s == 2)
-		op16d_on_tos("cmp");
+		op16d_on_tos("sub");
 	printf("\t%s %s\n", jsr_op, op);
 	n->flags |= ISBOOL;
 	invalidate_work();
@@ -948,11 +961,12 @@ unsigned gen_push(struct node *n)
 		puts("\tpshs b");
 		return 1;
 	case 2:
-		puts("\tpshs d");
+		push_d();
 		return 1;
 	case 4:	/* Have to split them to get the order right */
 		/* Or we could go PDP11 style mixed endian long ? */
-		puts("\tpshs d\n\tpshs y");
+		push_d();
+		puts("pshs y");
 		return 1;
 	}
 	return 0;
