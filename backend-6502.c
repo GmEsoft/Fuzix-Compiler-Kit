@@ -1900,7 +1900,7 @@ void gen_segment(unsigned s)
 {
 	switch(s) {
 	case A_CODE:
-		output(".code");
+		output(".%s", codeseg);
 		break;
 	case A_DATA:
 		output(".data");

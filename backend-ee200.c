@@ -80,7 +80,7 @@ void gen_segment(unsigned s)
 {
 	switch(s) {
 	case A_CODE:
-		printf("\t.code\n");
+		printf("\t.%s\n", codeseg);
 		break;
 	case A_DATA:
 		printf("\t.data\n");
@@ -593,7 +593,7 @@ unsigned op_into_r(char r, struct node *n, unsigned s, const char *b, const char
 			else
 				printf("\tld%c (%c)\n", r, r);
 		}
-		break;	
+		break;
 	case T_NREF:
 		if (s == 1)
 			printf("\tld%cb (%s+%u)\n", r, namestr(n->snum), v);
@@ -916,7 +916,7 @@ unsigned gen_direct(struct node *n)
 	/* TODO  - optimized constant forms
 	case T_ANDEQ:
 	case T_OREQ:
-	case T_HATEQ: 
+	case T_HATEQ:
 	*/
 	case T_LTLT:
 		if (r->op == T_CONSTANT && s <= 2) {
@@ -928,7 +928,7 @@ unsigned gen_direct(struct node *n)
 					printf("\tclr b\n");
 				return 1;
 			}
-			if (v >= 8) { 
+			if (v >= 8) {
 				printf("\txfrb bl,bh\n");
 				printf("\tclrb bl\n");
 				v -= 8;
@@ -1173,7 +1173,7 @@ unsigned popeq(struct node *n, const char *o)
 		return 0;
 	if (s == 1)
 		ss = "b";
-		
+
 	printf("\tldx (s+)\n");
 	printf("\tlda%s (x)\n", ss);
 	if (n->op == T_ANDEQ || n->op == T_PLUSEQ ||
@@ -1183,7 +1183,7 @@ unsigned popeq(struct node *n, const char *o)
 		printf("\t%sb al,bl\n", o);
 	else
 		printf("\t%s a,b\n", o);
-		
+
 	printf("\tstb%s (x)\n", ss);
 	return 1;
 }
@@ -1328,7 +1328,7 @@ unsigned gen_node(struct node *n)
 	case T_LREF:
 		v += sp;
 		printf(";lref %u\n", v);
-		if (v < 128) {	
+		if (v < 128) {
 			if (s == 1) {
 				printf("\tldbb %u(s)\n", v);
 				return 1;
@@ -1348,7 +1348,7 @@ unsigned gen_node(struct node *n)
 		return 1;
 	case T_LSTORE:
 		v += sp;
-		if (v < 128) {	
+		if (v < 128) {
 			if (s == 1) {
 				printf("\tstbb %u(s)\n", v);
 				return 1;

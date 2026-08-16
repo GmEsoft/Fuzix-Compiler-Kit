@@ -783,7 +783,7 @@ static void pre_store16(struct node *n)
 
 static void pre_store16clx(struct node *n)
 {
-	if (hx_live) { 
+	if (hx_live) {
 		output("sthx @tmp");
 		output("txa");
 		memcpy(&reg[R_A], &reg[R_X], sizeof(struct regtrack));
@@ -793,7 +793,7 @@ static void pre_store16clx(struct node *n)
 		output("stx @tmp+1");
 	}
 	load_x(0);
-	
+
 }
 
 static void pre_psha(struct node *n)
@@ -983,7 +983,7 @@ static int pri_cchelp(register struct node *n, unsigned s, char *helper)
 
 static void pre_stash(struct node *n)
 {
-	if (hx_live == 1) { 
+	if (hx_live == 1) {
 		output("sthx @tmp");
 		hx_live = 0;
 	} else {
@@ -1292,7 +1292,7 @@ struct node *gen_rewrite_node(struct node *n)
 	if (op == T_PLUSEQ || op == T_MINUSEQ || op == T_STAREQ ||
 		op == T_SLASHEQ || op == T_PERCENTEQ || op == T_SHLEQ ||
 		op == T_SHREQ || op == T_ANDEQ || op == T_OREQ || op == T_HATEQ)
-		work_via_hx(l);		
+		work_via_hx(l);
 	return n;
 }
 
@@ -1306,7 +1306,7 @@ void gen_segment(unsigned s)
 {
 	switch(s) {
 	case A_CODE:
-		output(".code");
+		output(".%s", codeseg);
 		break;
 	case A_DATA:
 		output(".data");
@@ -1787,7 +1787,7 @@ unsigned gen_direct(struct node *n)
 				load_a(0);
 				return 1;
 			}
-			
+
 			/* We can do a few very simple cases directly */
 			if (s == 1) {
 				if (v == 0) {
@@ -2201,7 +2201,7 @@ unsigned do_gen_node(struct node *n)
 			if (do_pri8(n, "lda", pre_none, 1)) {
 				set_a_node(n);
 				return 1;
-			} 
+			}
 		}
 		if (size == 1) {
 			if (a_contains(n))

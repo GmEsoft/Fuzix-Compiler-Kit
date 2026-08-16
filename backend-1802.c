@@ -170,7 +170,7 @@ void gen_segment(unsigned s)
 {
 	switch(s) {
 	case A_CODE:
-		printf("\t.code\n");
+		printf("\t.%s\n", codeseg);
 		break;
 	case A_DATA:
 		printf("\t.data\n");
@@ -416,7 +416,7 @@ void byteop_c(struct node *n, unsigned op, unsigned opl)
 	}
 	/* Ops are ordered so this works */
 	if (s == 1)
-		op -= 2; 
+		op -= 2;
 	byteop_direct(op);
 }
 
@@ -444,7 +444,7 @@ void byteop_cs(struct node *n, unsigned op, unsigned opl)
 	}
 	/* Ops are ordered so this works */
 	if (s == 1)
-		op -= 2; 
+		op -= 2;
 	if (n->type & UNSIGNED)
 		op += 4;
 	byteop_direct(op);
