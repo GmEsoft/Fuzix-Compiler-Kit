@@ -46,3 +46,10 @@
 =
 	ld%1 [,s++]
 
+# Store 32bit optimisation
+	exg d,y
+	stb 1,x
+	sta 0,x
+	exg d,y
+=
+	sty 0,x
