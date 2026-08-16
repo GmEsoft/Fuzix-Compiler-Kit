@@ -1198,7 +1198,7 @@ void opd_on_ptr(struct node *n, const char *op, const char *op2, unsigned off)
 	else if (s == 2)
 		op16d_on_ptr(op, op2, off);
 	else
-		op32_on_ptr(op, op2, off);
+		op32d_on_ptr(op, op2, off);
 }
 
 /* TODO; compare and flip the boolify test rather than go via stack
