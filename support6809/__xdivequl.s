@@ -11,12 +11,12 @@ __xdivequl:
 	std	11,s
 	ldd	2,x
 	std	13,s
-	stx	,--s
+	pshs	x
 	leax	2,s
 	lbsr	div32x32
 	ldy	11,x
 	ldd	13,x
-	ldx	,s++
+	puls	x
 	sty	,x
 	std	2,x
 

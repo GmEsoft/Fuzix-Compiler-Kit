@@ -28,10 +28,10 @@
 ;
 
 __notc:
-	cmpb	#0
+	tstb
 	bra	booleq
 __not:
-	cmpd	#0
+	subd	#0
 booleq:
 	bne	ret0
 ret1:
@@ -39,10 +39,10 @@ ret1:
 	rts
 
 __boolc:
-	cmpb	#0
+	tstb
 	bra	boolne
 __bool:
-	cmpd	#0
+	subd	#0
 boolne:
 	bne	ret1
 ret0:

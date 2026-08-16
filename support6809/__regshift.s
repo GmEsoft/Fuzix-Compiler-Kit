@@ -12,6 +12,7 @@ lsln:
 	lslb
 	rola
 	leau	-1,u
+	cmpu	#0
 	bne	lsln
 	tfr	d,u
 	rts
@@ -24,6 +25,7 @@ lsrn:
 	lsra
 	rorb
 	leau	-1,u
+	cmpu	#0
 	bne	lsrn
 	tfr	d,u
 	rts
@@ -36,6 +38,7 @@ asrn:
 	asra
 	rorb
 	leau	-1,u
+	cmpu	#0
 	bne	asrn
 	tfr	d,u
 	rts

@@ -17,7 +17,7 @@
 ;	C99 says it's the sign of the dividend.
 ;
 __xremequc:
-	stx ,--s		; save pointer
+	pshs x			; save pointer
 	ldy #0
 	bsr absd
 	ldx -1,x		; so the byte we want ends up low
@@ -27,19 +27,18 @@ dorem:
 	exg d,x
 	lbsr div16x16		; do the unsigned divide
 store:
-	ldx ,s++
+	puls x
 	stb ,x
 	rts
 	
 __xremeqc:
-	stx ,--s		; save pointer
+	pshs x			; save pointer
 	ldy #0
 	bsr absd
 	ldx -1,x		; so the byte we want ends up low
 	exg d,x
 	sex
-	bita #0x80
-	beq dorem
+	bpl dorem
 negmod:
 	bsr negd
 	exg d,x
@@ -55,7 +54,7 @@ negmod:
 ;	sign, otherwise negative
 ;
 __xdivequc:
-	stx, --s
+	pshs x
 	ldy #0			; Count number of sign changes
 	ldx -1,x		; Data value
 	bsr absd
@@ -63,7 +62,7 @@ __xdivequc:
 	clra
 	bra dodiv
 __xdiveqc:
-	stx, --s
+	pshs x
 	ldy #0			; Count number of sign changes
 	ldx -1,x		; Data value
 	bsr absd
@@ -81,8 +80,8 @@ dodiv:
 	bra store
 	
 absd:
-	bita #$80
-	beq ispos
+	tsta
+	bpl ispos
 	leay 1,y		; count sign changes in Y
 negd:
 	subd #1			; negate d

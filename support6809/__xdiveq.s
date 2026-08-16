@@ -15,20 +15,20 @@
 ;	C99 says it's the sign of the dividend.
 ;
 __xremeq:
-	stx ,--s		; save pointer
+	pshs x			; save pointer
 	ldy #0
 	bsr absd
 	ldx ,x
-	exg d,x
-	bita #0x80
-	bne negmod
-	exg d,x
+	bmi negmod
 	lbsr div16x16		; do the unsigned divide
 store:
-	ldx ,s++
+	; can we replace this with std [,s++]?
+	; ie do we need x?
+	puls x
 	std ,x
 	rts
 negmod:
+	exg d,x
 	bsr negd
 	exg d,x
 	lbsr div16x16
@@ -43,7 +43,7 @@ negmod:
 ;	sign, otherwise negative
 ;
 __xdiveq:
-	stx, --s
+	pshs x
 	ldy #0			; Count number of sign changes
 	ldx ,x			; Data value
 	bsr absd
@@ -59,8 +59,8 @@ __xdiveq:
 	bra store
 	
 absd:
-	bita #$80
-	beq ispos
+	tsta
+	bpl ispos
 	leay 1,y		; count sign changes in Y
 negd:
 	nega

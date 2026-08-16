@@ -6,7 +6,7 @@
 
 __xminuseq:
 __xminusequ:
-	std ,--s
+	pshs d
 	ldd ,x
 	subd ,s++
 	std ,x

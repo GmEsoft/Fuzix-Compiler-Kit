@@ -1,8 +1,8 @@
 	.export __remul
 	.code
 __remul:
-	std	,--s
-	sty	,--s
+	pshs	d
+	pshs	y
 	leas	-5,s
 	tfr	s,x
 	lbsr	div32x32

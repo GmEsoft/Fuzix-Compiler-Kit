@@ -1,9 +1,8 @@
 	.export __divul
 	.code
 __divul:
-	std	,--s
-	sty	,--s
-	leas	-5,s		; required workspace
+	pshs	d
+	pshs	cc,a,b,x,y	; trick: push y, reserve 5 byte workspace
 	tfr	s,x
 	lbsr	div32x32
 	ldy	11,x

@@ -2,15 +2,12 @@
 	.code
 
 __reml:
-	exg	d,y
-	bita	#0x80
-	beq	nosignfix
-	exg	d,y
+	cmpy	#0
+	bpl	nosignfix
 	lbsr	__negatel
-	exg	d,y
 nosignfix:
-	sty	,--s
-	std	,--s
+	pshs	d
+	pshs	y
 	;
 	;	Sign check
 	;
@@ -31,7 +28,7 @@ nosignfix:
 	com	9,s
 nosignfix2:
 	leas	-5,s
-	stx	,--s
+	pshs	x
 	leax	2,s
 	lbsr	div32x32
 	;

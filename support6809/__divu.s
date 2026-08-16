@@ -27,7 +27,7 @@ __remu:
 
 __xdivequ:
 	; ,X / D
-	stx ,--s		; Save pointer
+	pshs x			; Save pointer
 	ldx ,x			; Value
 	lbsr div16x16
 	exg d,x			; result now in D
@@ -36,7 +36,7 @@ __xdivequ:
 
 __xremequ:
 	; ,X % D
-	stx ,--s		; Save pointer
+	pshs x			; Save pointer
 	ldx ,x			; Value
 	lbsr div16x16
 	std [,s++]		; Get pointer back and save

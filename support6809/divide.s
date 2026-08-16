@@ -26,7 +26,7 @@
 
 div16x16:
 	; TODO - should be we spot div by 0 and trap out ?
-	std ,--s
+	pshs d
 	ldb #16			; bit count
 	stb ,-s			; counter
 	clra
