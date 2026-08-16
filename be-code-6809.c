@@ -6,6 +6,8 @@
 #include "backend.h"
 #include "backend-6800.h"
 
+unsigned label;		/* Used to hand out local labels in the form X%u */
+
 void push_d(void)
 {
 	puts("\tpshs d");
@@ -16,7 +18,73 @@ void pop_d(void)
 	puts("\tpuls d");
 }
 
-unsigned label;		/* Used to hand out local labels in the form X%u */
+/* String variants to push 2-8 bytes. add cc, to get odd. Also stacks
+   with u in the right place for register frames */
+static char regframe[] = "d,x,y,u";
+
+static void pshframe(unsigned size)
+{
+	printf("\tpshs %s%s\n",
+		size & 1 ? "cc,":"",
+		regframe + 8 - (size & ~1));
+}
+
+/* Generate the stack frame */
+void gen_frame(unsigned size, unsigned aframe)
+{
+	argbase = ARGBASE;
+	frame_len = size;
+
+	if (func_flags & F_REG(1)) {
+		if (size <= 6)
+			pshframe(size + 2);
+		else {
+			puts("pshs u");
+			adjust_s(-size, 0);
+		}
+		argbase += 2;
+		return;
+	}
+	if (size > 2 && size <= 8)
+		pshframe(size);
+	else
+		adjust_s(-size, 0);
+	return;
+}
+
+void gen_epilogue(unsigned size, unsigned argsize)
+{
+	if (sp)
+		error("sp");
+
+	/* To handle the 4 case we'd need to know the return type of the
+	   function in full so we could use Y TODO */
+	if (func_flags & F_REG(1)) {
+		if (size == 3) {
+			puts("\tpuls x,cc,u,pc");
+			return;
+		}
+		if (size == 2) {
+			puts("\tpuls x,u,pc");
+			return;
+		}
+	} else {
+		if (size == 3) {
+			puts("\tpuls x,cc,pc");
+			return;
+		}
+		if (size == 2) {
+			puts("\tpuls x,pc");
+			return;
+		}
+	}
+	adjust_s(size, (func_flags & F_VOIDRET) ? 0 : 1);
+	if (func_flags & F_REG(1))
+		puts("\tpuls u,pc");
+	else
+		puts("\trts");
+	unreachable = 1;
+}
 
 /*
  *	6809 implementation of the code generation section
@@ -797,9 +865,12 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *op)
 
 	if (r->type & UNSIGNED)
 		op = uop;
-
+	/* Use == 0 helper */
 	if (v == 0 && s == 2 && r->op == T_CONSTANT)
 		zop = 1;
+	/* Do byte compare as we know the high one matches */
+	else if (s == 2 && a_valid && (v & 0xFF00) == a_val && r->op == T_CONSTANT)
+		printf("\tsubb #%u\n", BYTE(v));
 	else if (s == 1 && op8_on_node(r, "sub", 0) == 0)
 		return 0;
 	else if (s == 2 && op16d_on_node(r, "sub", "sbc", 0) == 0)
@@ -966,7 +1037,7 @@ unsigned gen_push(struct node *n)
 	case 4:	/* Have to split them to get the order right */
 		/* Or we could go PDP11 style mixed endian long ? */
 		push_d();
-		puts("pshs y");
+		puts("\tpshs y");
 		return 1;
 	}
 	return 0;

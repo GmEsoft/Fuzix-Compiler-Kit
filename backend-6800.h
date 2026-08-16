@@ -72,6 +72,8 @@ extern void modify_a(uint8_t val);
 extern void modify_b(uint8_t val);
 
 /* Code generation helpers */
+extern void push_d(void);
+extern void pop_d(void);
 extern void load_d_const(uint16_t n);
 extern void load_a_const(uint8_t n);
 extern void load_b_const(uint8_t n);

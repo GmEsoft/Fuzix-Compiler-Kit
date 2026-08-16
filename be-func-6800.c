@@ -43,7 +43,7 @@ void gen_segment(unsigned s)
 {
 	switch(s) {
 	case A_CODE:
-		puts("\t.code");
+		printf("\t.%s\n", codeseg);
 		break;
 	case A_DATA:
 		puts("\t.data");
@@ -64,43 +64,6 @@ void gen_prologue(const char *name)
 	unreachable = 0;
 	invalidate_all();
 	printf("%s:\n", name);
-}
-
-/* Generate the stack frame */
-void gen_frame(unsigned size, unsigned aframe)
-{
-	argbase = ARGBASE;
-	/* Only occurs on 6809 */
-	if (func_flags & F_REG(1)) {
-		puts("\tpshs u");
-		argbase += 2;
-	}
-	/* TODO: there is an optimization trick here for 09 where you
-	   can use a pshs combining the pshs u to make some size of frame */
-	frame_len = size;
-	adjust_s(-size, 0);
-}
-
-void gen_epilogue(unsigned size, unsigned argsize)
-{
-	if (sp)
-		error("sp");
-	adjust_s(size, (func_flags & F_VOIDRET) ? 0 : 1);
-	if (func_flags & F_REG(1))
-		/* 6809 only */
-		puts("\tpuls u,pc");
-	/* TODO: we are asssuming functions clean up their args if not
-	   vararg so this will have to change */
-	else if (argsize == 0 || cpu_has_d || (func_flags & F_VARARG))
-		puts("\trts");
-	else if (argsize <= 8)
-		printf("\t%s __cleanup%u\n", jmp_op, argsize);
-	else {
-		/* Icky - can we do better remembering AB is live for
-		   non void funcs */
-		printf("\t%s __cleanupb\n\t.word %u\n", jsr_op, argsize);
-	}
-	unreachable = 1;
 }
 
 void gen_label(const char *tail, unsigned n)
@@ -281,7 +244,7 @@ void gen_start(void)
 	switch(cpu) {
 	case 6309:
 	case 6809:
-		cpu_pic = 1;
+		cpu_pic = cpufeat & 1;
 		cpu_is_09 = 1;
 		cpu_has_d = 1;
 		cpu_has_pshx = 1;
@@ -290,8 +253,11 @@ void gen_start(void)
 		cpu_has_xgdx = 1;
 		cpu_has_lea = 1;
 		jmp_op = "bra";	/* Maybe a choice will be needed for jmp v bra/lbra ? */
-		jsr_op = "lbsr";
-		pic_op = ",pcr";
+		if (cpu_pic) {
+			jsr_op = "lbsr";
+			pic_op = ",pcr";
+		} else
+			jsr_op = "jsr";
 		break;
 	case 6811:
 		cpu_has_y = 1;

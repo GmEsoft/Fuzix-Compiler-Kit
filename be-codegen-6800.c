@@ -472,6 +472,7 @@ unsigned gen_direct(struct node *n)
 	unsigned off;
 	uint16_t v;
 	uint16_t hv;
+	unsigned nr = n->flags & NORETURN;
 
 	switch(n->op) {
 	/* Clean up is special and must be handled directly. It also has the
@@ -501,7 +502,7 @@ unsigned gen_direct(struct node *n)
 			} else if (s == 4 && cpu_has_y) {
 				load_d_const(v);
 				printf("\tldy #%u\n", (unsigned)(r->value >> 16));
-				op32d_on_ptr("st", "st", off);
+				store32(off, nr);
 				return 1;
 			}
 		}
@@ -581,7 +582,7 @@ unsigned gen_direct(struct node *n)
 					if (v)
 						printf("\tanda #%u\n", v);
 					else
-						puts("\tclra");
+						load_a_const(0);
 				}
 				modify_a(a_val & v);
 			}
@@ -602,7 +603,7 @@ unsigned gen_direct(struct node *n)
 					if (hv & 0xFF)
 						printf("\tanda #%u\n", hv & 0xFF);
 					else
-						puts("\tclra");
+						load_a_const(0);
 					swap_d_y();
 				}
 			}
@@ -1134,20 +1135,13 @@ unsigned add_to_node(struct node *n, int sign, int retres)
 		return 1;
 	}
 	op16d_on_ptr("ld", "ld", off);
-	if (!retres) {
-		if (cpu_is_09)
-			puts("\tpshs d");
-		else
-			puts("\tpshb\n\tpsha");
-	}
+	if (!retres)
+		push_d();
+
 	add_d_const(sign * r->value);
 	op16d_on_ptr("st", "st", off);
-	if (!retres) {
-		if (cpu_is_09)
-			puts("\tpuls d");
-		else
-			puts("\tpula\n\tpulb");
-	}
+	if (!retres)
+		pop_d();
 	invalidate_work();
 	invalidate_mem();
 	if (retres)
@@ -1504,7 +1498,8 @@ static unsigned gen_cast(struct node *n)
 
 		if (cpu_has_y) {
 			if (opt && rs == 1 && ls == 2) {
-				puts("\tclra\n\tasrb\n\trolb\n\tsbca #0");
+				load_a_const(0);
+				puts("\tasrb\n\trolb\n\tsbca #0");
 				return 1;
 			}
 			/* TODO 2->4 byte expansion with Y register */
@@ -1512,7 +1507,8 @@ static unsigned gen_cast(struct node *n)
 		}
 
 		if (opt && rs == 1) {
-			puts("\tclra\n\tasrb\n\trolb\n\tsbca #0");
+			load_a_const(0);
+			puts("\tasrb\n\trolb\n\tsbca #0");
 			if(ls == 4)
 				puts("\tstaa @hireg\n\tstaa @hireg+1");
 			return 1;
@@ -1587,7 +1583,7 @@ unsigned gen_node(struct node *n)
 		}
 		if (s == 4) {
 			pop_x();
-			op32d_on_ptr("st", "st", v);
+			store32(v, nr);
 			return 1;
 		}
 		break;
@@ -1740,7 +1736,7 @@ unsigned gen_node(struct node *n)
 		else if (s == 2)
 			op16d_on_ptr("ld", "ld", v);
 		else
-			op32d_on_ptr("ld", "ld", v);
+			load32(v);
 		invalidate_work();
 		return 1;
 	case T_NDEREF:
@@ -1793,7 +1789,7 @@ unsigned gen_node(struct node *n)
 		else if (s == 2)
 			op16d_on_ptr("st", "st", n->snum);
 		else
-			op32d_on_ptr("st", "st", n->snum);
+			load32(n->snum);
 		return 1;
 	case T_NEQ:
 		if (s == 1)

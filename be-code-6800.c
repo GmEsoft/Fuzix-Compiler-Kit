@@ -8,6 +8,41 @@
 
 unsigned label;		/* Used to hand out local labels of the form X%u */
 
+void push_d(void)
+{
+	puts("\tpshb\n\tpsha");
+}
+
+void pop_d(void)
+{
+	puts("\tpula\n\tpulb");
+}
+
+/* Generate the stack frame */
+void gen_frame(unsigned size, unsigned aframe)
+{
+	argbase = ARGBASE;
+	frame_len = size;
+	adjust_s(-size, 0);
+}
+
+void gen_epilogue(unsigned size, unsigned argsize)
+{
+	if (sp)
+		error("sp");
+	adjust_s(size, (func_flags & F_VOIDRET) ? 0 : 1);
+	if (argsize == 0 || cpu_has_d || (func_flags & F_VARARG))
+		puts("\trts");
+	else if (argsize <= 8)
+		printf("\t%s __cleanup%u\n", jmp_op, argsize);
+	else {
+		/* Icky - can we do better remembering AB is live for
+		   non void funcs */
+		printf("\t%s __cleanupb\n\t.word %u\n", jsr_op, argsize);
+	}
+	unreachable = 1;
+}
+
 static unsigned make_with_op(char r, register uint8_t ev, register uint8_t tv)
 {
 	/* INC and DEC */
@@ -415,9 +450,11 @@ static void op32_on_ptr(const char *op, const char *op2, unsigned off)
 		printf("\t%sb %u,x\n\t%sa %u,x\n", op2, off + 1, op2, off);
 		swap_d_y();
 	} else {
-		puts("\tpshb\n\tpsha\n\tldaa @hireg\n\tldab @hireg+1");
+		push_d();
+		puts("\tldaa @hireg\n\tldab @hireg+1");
 		printf("\t%sb %u,x\n\t%sa %u,x\n", op2, off + 1, op2, off);
-		puts("\tstaa @hireg\n\tstab @hireg+1\n\tpula\n\tpulb");
+		puts("\tstaa @hireg\n\tstab @hireg+1");
+		pop_d();
 	}
 }
 
@@ -433,9 +470,11 @@ void op32d_on_ptr(const char *op, const char *op2, unsigned off)
 		printf("\t%sb %u,x\n\t%sa %u,x\n", op2, off + 1, op2, off);
 		swap_d_y();
 	} else {
-		puts("\tpshb\n\tpsha\n\tldd @hireg");
+		push_d();
+		puts("\tldd @hireg");
 		printf("\t%sb %u,x\n\t%sa %u,x\n", op2, off + 1, op2, off);
-		puts("\tstd @hireg\n\tpula\n\tpulb");
+		puts("\tstd @hireg");
+		pop_d();
 	}
 }
 
@@ -1235,15 +1274,16 @@ unsigned gen_push(struct node *n)
 		puts("\tpshb");
 		return 1;
 	case 2:
-		puts("\tpshb\n\tpsha");
+		push_d();
 		return 1;
 	case 4:
 		/* TODO: if we have no valid X we should ldx/pshx on 6803 */
-		puts("\tpshb\n\tpsha\n");
+		push_d();
 		if (cpu_has_y)
 			puts("\tpshy");
 		else if (cpu_has_d) {
-			puts("\tldd @hireg\n\tpshb\n\tpsha");
+			puts("\tldd @hireg");
+			push_d();
 			invalidate_work();
 		} else {
 			puts("\tldaa @hireg+1\n\tpsha\n\tldaa @hireg\n\tpsha");
