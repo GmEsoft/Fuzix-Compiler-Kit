@@ -70,6 +70,8 @@ extern void set_d_node_ptr(struct node *n);
 extern unsigned d_holds_node(struct node *n);
 extern void modify_a(uint8_t val);
 extern void modify_b(uint8_t val);
+extern void set_a(uint8_t val);
+extern void set_b(uint8_t val);
 
 /* Code generation helpers */
 extern void push_d(void);

@@ -138,3 +138,17 @@ void modify_b(uint8_t val)
 	b_val = val;
 	d_valid = 0;
 }
+
+void set_a(uint8_t val)
+{
+	a_val = val;
+	d_valid = 0;
+	a_valid = 1;
+}
+
+void set_b(uint8_t val)
+{
+	b_val = val;
+	b_valid = 1;
+	d_valid = 0;
+}
