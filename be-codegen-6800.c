@@ -1015,12 +1015,12 @@ unsigned memop_const(struct node *n, const char *op, unsigned nr, unsigned pre)
 	switch(l->op) {
 	case T_NAME:
 		if (pre == 1)
-			printf("ldb %s+%u\n", namestr(l->snum), v);
-		sprintf(buf, "%s %s+%u", op, namestr(l->snum), v);
+			printf("\tldb %s+%u\n", namestr(l->snum), v);
+		sprintf(buf, "\t%s %s+%u", op, namestr(l->snum), v);
 		repeated_op(ct, buf);
 		invalidate_mem();
 		if (pre == 2)
-			printf("ldb %s+%u\n", namestr(l->snum), v);
+			printf("\tldb %s+%u\n", namestr(l->snum), v);
 		if (pre)
 			invalidate_b();
 		return 1;
@@ -1790,7 +1790,7 @@ unsigned gen_node(struct node *n)
 		else if (s == 2)
 			op16d_on_ptr("st", "st", n->snum);
 		else
-			load32(n->snum);
+			store32(n->snum, nr);
 		return 1;
 	case T_NEQ:
 		if (s == 1)
