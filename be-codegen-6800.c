@@ -1070,6 +1070,7 @@ unsigned memop_shift(struct node *n, const char *op, const char *opu)
 		invalidate_mem();
 		return 1;
 	case T_ARGUMENT:
+		v += argbase + frame_len;
 	case T_LOCAL:
 		/* No ,x forms so cannot do locals */
 		if (!cpu_is_09)
