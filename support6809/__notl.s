@@ -11,5 +11,5 @@ false:
 	rts
 true:
 	; D is zero
-	ldb	#1
+	incb
 	rts
