@@ -662,6 +662,27 @@ unsigned write_tos_uniop(struct node *n, const char *op)
 
 /* TODO: decide how much we inline for -Os */
 
+static void left16(unsigned v)
+{
+	if (v >= 16)
+		load_d_const(0);
+	else if (v >= 8) {
+		load_a_b();
+		load_b_const(0);
+		v -= 8;
+		if (v) {
+			invalidate_work();
+			repeated_op(v, "lsla");
+		}
+	} else {
+		printf(";left %u %u\n", optsize, v);
+		if (optsize && v > 2)
+			printf("\tjsr __lsl%u\n", v);
+		else while(v--)
+			puts("\tlslb\n\trola");
+	}
+}
+
 unsigned left_shift(struct node *n)
 {
 	unsigned s = get_size(n->type);
@@ -680,22 +701,7 @@ unsigned left_shift(struct node *n)
 		return 1;
 	}
 	if (s == 2) {
-		if (v >= 16) {
-			load_d_const(0);
-			return 1;
-		}
-		if (v >= 8) {
-			load_a_b();
-			load_b_const(0);
-			v -= 8;
-			if (v) {
-				invalidate_work();
-				repeated_op(v, "lsla");
-			}
-			return 1;
-		}
-		while(v--)
-			puts("\tlslb\n\trola");
+		left16(v);
 		invalidate_work();
 		return 1;
 	}
@@ -740,7 +746,9 @@ unsigned right_shift(struct node *n)
 			}
 			return 1;
 		}
-		while(v--)
+		if (optsize && v > 2)
+			printf("\tjsr __%s%u\n", op, v);
+		else while(v--)
 			printf("\t%sa\n\trorb\n", op);
 		invalidate_work();
 		return 1;
@@ -853,12 +861,13 @@ unsigned load_u_with(struct node *r, unsigned off)
 }
 
 /* 6809 we have SUBD and access to lots of things */
-unsigned cmp_direct(struct node *n, const char *uop, const char *op)
+unsigned cmp_direct(struct node *n, const char *uop, const char *sop)
 {
 	struct node *r = n->right;
 	unsigned s = get_size(r->type);
 	unsigned v = r->value;
 	unsigned zop = 0;
+	const char *op = sop;
 
 	if (s == 4)
 		return 0;
@@ -869,9 +878,11 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *op)
 	if (v == 0 && s == 2 && r->op == T_CONSTANT)
 		zop = 1;
 	/* Do byte compare as we know the high one matches */
-	else if (s == 2 && a_valid && (v & 0xFF00) == a_val && r->op == T_CONSTANT)
+	else if (s == 2 && a_valid && (v & 0xFF00) == a_val && r->op == T_CONSTANT) {
 		printf("\tsubb #%u\n", BYTE(v));
-	else if (s == 1 && op8_on_node(r, "sub", 0) == 0)
+		/* We implicitly did the signed first byte comparison */
+		op = uop;
+	} else if (s == 1 && op8_on_node(r, "sub", 0) == 0)
 		return 0;
 	else if (s == 2 && op16d_on_node(r, "sub", "sbc", 0) == 0)
 		return 0;
@@ -880,7 +891,7 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *op)
 	else
 		printf("\t%s %s0\n", jsr_op, op);
 	n->flags |= ISBOOL;
-	modify_a(0);
+	set_a(0);
 	invalidate_b();
 	return 1;
 }
@@ -938,15 +949,25 @@ unsigned gen_fast_mul(unsigned s, unsigned n)
 		load_d_const(0);
 		return 1;
 	}
-	/* The base cost of a helper is 8 */
-	if (optsize)
-		cost = 8;
-	if (count_mul_cost(n) <= cost) {
-		write_mul(n);
-		invalidate_work();
+	/* Isn't a simple shift */
+	if (n & (n - 1)) {
+		/* The base cost of a helper is 8 */
+		if (optsize)
+			cost = 8;
+		if (count_mul_cost(n) <= cost) {
+			write_mul(n);
+			invalidate_work();
+			return 1;
+		}
+		return 0;
+	} else {
+		unsigned c = 0;
+		/* Power of 2 */
+		while(n >>= 1)
+			c++;
+		left16(c);
 		return 1;
 	}
-	return 0;
 }
 
 unsigned gen_fast_div(unsigned n, unsigned s, unsigned u)
@@ -1019,6 +1040,7 @@ unsigned cmp_op(struct node *n, const char *uop, const char *op)
 	printf("\t%s %s\n", jsr_op, op);
 	n->flags |= ISBOOL;
 	invalidate_work();
+	set_a(0);
 	return 1;
 }
 
