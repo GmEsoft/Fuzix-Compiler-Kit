@@ -6,10 +6,9 @@
 	.export __l_ltltc
 
 __l_ltltc:
-	pha
-	lda	(@sp),y
+	; A << local
 	sta	@tmp
-	pla
+	lda	(@sp),y
 ;	tmp << A
 __lstmpc:
 	ldy	#0
