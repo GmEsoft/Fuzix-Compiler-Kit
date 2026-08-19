@@ -1337,7 +1337,7 @@ unsigned gen_shortcut(struct node *n)
 				opd_on_ptr(n, "st", "st", v);
 			return 1;
 		}
-		if (can_load_d_nox(r, 0)) {
+		if (can_load_d_nox(r, 0) && s < 4) {
 			if (l->op == T_LPLUS) {
 				/* Do the LPLUS expression by hand */
 				codegen_lr(l->right);
@@ -1350,6 +1350,7 @@ unsigned gen_shortcut(struct node *n)
 				make_x_d();
 			}
 			/* X is now our pointer */
+			printf(";via d_nox\n");
 
 			/* Load D without touching X */
 			if (r->op == T_CONSTANT) {
@@ -1360,7 +1361,7 @@ unsigned gen_shortcut(struct node *n)
 					codegen_lr(r);
 				}
 			} else
-				write_op(r, "ld", "ld", 0);
+				write_opd(r, "ld", "ld", 0);
 			invalidate_work();
 
 			/* Store */
