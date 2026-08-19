@@ -1272,6 +1272,27 @@ unsigned gen_shortcut(struct node *n)
 		/* Need to look at off handling
 		   TODO: think v + off is all that is needed but for non
 		   6809 that means range checking complications */
+		if (r->op == T_RREF) {
+			/* Want to use U here */
+			switch(s) {
+			case 1:
+				printf("\tldb %u,u\n", v);
+				invalidate_b();
+				break;
+			case 2:
+				printf("\tldd %u,u\n", v);
+				invalidate_work();
+				break;
+			case 4:
+				printf("\tldy %u,u\n", v);
+				printf("\tldd %u,u\n", v + 2);
+				invalidate_work();
+				break;
+			default:
+				error("d+");
+			}
+			return 1;
+		}
 		if (can_load_r_simple(r, 0)) {
 			printf("; go via shortcut\n");
 			v += load_x_with(r, 0);
@@ -1285,6 +1306,7 @@ unsigned gen_shortcut(struct node *n)
 		return 0;
 	case T_EQ:	/* Our left is the address */
 	case T_EQPLUS:
+		/* FIXME: optimise RREF on left as stores via ,u */
 		v = n->value;
 		if (can_load_r_simple(l, 0)) {
 			if (r->op == T_CONSTANT && nr && s == 4) {
@@ -1895,6 +1917,23 @@ unsigned gen_node(struct node *n)
 		puts("\tjsr ,x");
 		invalidate_all();
 		return 1;
+	case T_BOOL:
+		n->flags |= ISBOOL;
+		if (!(n->right && (n->right->flags & ISBOOL)))
+			helper(n, "bool");
+		set_a(0);
+		return 1;
+	case T_BANG:
+		n->flags |= ISBOOL;
+		if (!(n->right && (n->right->flags & ISBOOL))) {
+			helper(n, "not");
+			set_a(0);
+		} else {
+			puts("\teorb #1");
+			invalidate_b();
+		}
+		return 1;
+
 	}
 	return 0;
 }
@@ -1912,6 +1951,7 @@ unsigned gen_node(struct node *n)
 	Arg helpers like Z8 etc so we can optimize post 6800 a bit
 	and also optimize push const cases and long consts especially
 	(and probably push arg)
-	Optimize arg pushes if have pshx by using LDX PSHX for consts
+	Optimize arg pushes if have pshx by using LDX PSHX for consts except
+		6809)
 	Add all the general operations we can do 16bit with a 6803
 */
