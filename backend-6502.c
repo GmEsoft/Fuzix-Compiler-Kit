@@ -3175,7 +3175,7 @@ unsigned gen_direct(struct node *n)
 			output("clc");
 			output("lda (@tmp),y");
 			invalidate_a();
-			if (nr)
+			if (!nr)
 				output("pha");
 			output("adc #%u", v & 0xFF);
 			output("sta (@tmp),y");
@@ -3186,7 +3186,7 @@ unsigned gen_direct(struct node *n)
 					tax();
 				output("adc #%u", (v >> 8) & 0xFF);
 			}
-			if (nr)
+			if (!nr)
 				output("pla");
 			return 1;
 		}
