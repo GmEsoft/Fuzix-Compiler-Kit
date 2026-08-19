@@ -139,3 +139,43 @@
 	tfr u,d
 =
 	tfr d,u
+
+# Look at inverting these properly when we do removals of logic
+	jsr booleq
+	jsr __not
+=
+	jsr boolne
+
+	jsr boolne
+	jsr __not
+=
+	jsr booleq
+
+	jsr boollt
+	jsr __not
+=
+	jsr boolge
+
+	jsr boolle
+	jsr __not
+=
+	jsr boolgt
+
+	jsr boolgt
+	jsr __not
+=
+	jsr boolle
+
+	jsr boolge
+	jsr __not
+=
+	jsr boollt
+
+# Until we tidy bool up more again
+
+	clra
+	clrb
+	jsr __bool
+=
+	clra
+	clrb
