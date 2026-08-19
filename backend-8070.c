@@ -1538,6 +1538,7 @@ static void do_op8(const char *op, unsigned off)
 		error("do8");
 	}
 	putchar('\n');
+	invalidate_a();
 }
 
 /* Perform an operation between EA and the reference */
@@ -1664,7 +1665,7 @@ static void oplogic16(unsigned off, unsigned size, unsigned lt)
 	unsigned v;
 
 	v = ref_constant(off, 2);
-	if (v == l->set16) {
+	if (v == l->set16 && lt != 2) {
 		load_ea(2, l->set16);
 		return;
 	}
@@ -1673,12 +1674,10 @@ static void oplogic16(unsigned off, unsigned size, unsigned lt)
 	if (v != l->null8) {
 		/* As cheap as loading anyway */
 		do_op8(l->op, off);
-		invalidate_a();
 	}
 	if (size > 1) {
 		v = ref_constant(off + 1, 1);
 		if (v != l->null8) {
-			invalidate_e();
 			xch_a_e();
 			do_op8(l->op, off + 1);
 			xch_a_e();
@@ -1693,7 +1692,6 @@ static unsigned oplogic(unsigned size, unsigned lt)
 
 	if (ref_op != T_CONSTANT) {
 		op8(l->op, size, 0);
-		invalidate_a();
 		return 1;
 	}
 	v = ref_constant(0, 2);
