@@ -1,3 +1,5 @@
+/* TODO: 6809 changes for stuff like tracking clra and A on bool etc */
+
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -1087,6 +1089,7 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *op)
 			printf("\tsubd #%u\n\t%s %s\n", v & 0xFFFF, jsr_op, op);
 			n->flags |= ISBOOL;
 			invalidate_work();
+			set_a(0);
 			return 1;
 		}
 	}
@@ -1252,6 +1255,7 @@ unsigned cmp_op(register struct node *n, const char *uop, const char *op)
 		printf("\t%s %s\n", jsr_op, op);
 		n->flags |= ISBOOL;
 		invalidate_work();
+		set_a(0);
 		return 1;
 	}
 	if (s == 2 && cpu_has_d) {
@@ -1259,6 +1263,7 @@ unsigned cmp_op(register struct node *n, const char *uop, const char *op)
 		printf("\t%s %s\n", jsr_op, op);
 		n->flags |= ISBOOL;
 		invalidate_work();
+		set_a(0);
 		return 1;
 	}
 	return 0;
