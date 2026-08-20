@@ -490,16 +490,18 @@ unsigned gen_direct(struct node *n)
 		/* If the left side was not simple then try and shortcut the
 		   right side */
 		if (cpu_has_xgdx && r->op == T_CONSTANT) {
-			swap_d_x();
 			if (s == 1) {
+				swap_d_x();
 				load_b_const(v);
 				op8_on_ptr("st", off);
 				return 1;
 			} else if (s == 2) {
+				swap_d_x();
 				load_d_const(v);
 				op16d_on_ptr("st", "st", off);
 				return 1;
 			} else if (s == 4 && cpu_has_y) {
+				swap_d_x();
 				load_d_const(v);
 				printf("\tldy #%u\n", (unsigned)(r->value >> 16));
 				store32(off, nr);
@@ -1594,6 +1596,7 @@ unsigned gen_node(struct node *n)
 		return 1;
 	case T_EQ:	/* Assign - ToS is address, working value is value */
 	case T_EQPLUS:
+		printf(";eqplus %u\n", s);
 		invalidate_mem();
 		if (s == 1) {
 			pop_x();
