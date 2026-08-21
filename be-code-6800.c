@@ -568,8 +568,7 @@ void op32d_on_ptr(const char *op, const char *op2, unsigned off)
 void load32(register unsigned off)
 {
 	if (cpu_has_y) {
-		printf("\tldd %u,x\n", off);
-		swap_d_y();
+		printf("\tldy %u,x\n", off);
 		printf("\tldd %u,x\n", off + 2);
 	} else if (cpu_has_d) {
 		printf("\tldd %u,x\n", off);
