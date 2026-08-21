@@ -1077,7 +1077,7 @@ struct node *gen_rewrite_node(struct node *n)
 			squash_right(n, T_LDEREF);	/* n->value becomes the local ref */
 			return n;
 		}
-		/* This doesn't actually help us when we are usign ,S modes */
+		/* This doesn't actually help us when we are using ,S modes */
 		if ((op == T_EQ || op == T_EQPLUS) && l->op == T_LREF) {
 			/* At this point r->value is the offset for the local */
 			/* n->value is the offset for the ptr load */
