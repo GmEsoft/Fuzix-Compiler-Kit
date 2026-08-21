@@ -18,6 +18,38 @@ void pop_d(void)
 	puts("\tpuls d");
 }
 
+/*
+ *	Perform an optimized 32bit constant add
+ *
+ *	For stuff using @hireg we try and optimize the common cases of adding
+ *	smaller constants. For stuff where we add high bits only shortcut
+ *	some of the work.
+ *
+ *	Care is needed as add_d_const() will not leave carry valid if asked
+ *	to add 0, hence the use of op.
+ */
+
+unsigned gen_add32(unsigned long v)
+{
+	char *op = "add";
+	unsigned l = WORD(v);
+	unsigned h = WORD(v >> 16);
+
+	if (v == 0)
+		return 1;
+
+	if (l) {
+		printf(";gen_add32\n");
+		add_d_const(l);
+		printf("\tbcc X%u\n", ++label);
+		printf("\tleay 1,y\nX%u:\n", label);
+		if (h)
+			printf("\tleay %u,y\n", h);
+	} else
+		printf("\tleay %u,y\n", h);
+	return 1;
+}
+
 /* String variants to push 2-8 bytes. add cc, to get odd. Also stacks
    with u in the right place for register frames */
 static char regframe[] = "d,x,y,u";

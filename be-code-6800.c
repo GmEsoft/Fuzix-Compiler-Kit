@@ -20,6 +20,91 @@ void pop_d(void)
 	puts("\tpula\n\tpulb");
 }
 
+static void load_d_hireg(void)
+{
+	if (cpu_has_d)
+		puts("\tldd @hireg");
+	else
+		puts("\tldaa @hireg\n\tldab @hireg+1");
+}
+
+static void store_d_hireg(void)
+{
+	if (cpu_has_d)
+		puts("\tstd @hireg");
+	else
+		puts("\tstaa @hireg\n\tstab @hireg+1");
+}
+
+static void store_x_hireg(void)
+{
+	puts("\tstx @hireg");
+}
+
+/*
+ *	Perform an optimized 32bit constant add
+ *
+ *	For stuff using @hireg we try and optimize the common cases of adding
+ *	smaller constants. For stuff where we add high bits only shortcut
+ *	some of the work.
+ *
+ *	Care is needed as add_d_const() will not leave carry valid if asked
+ *	to add 0, hence the use of op.
+ */
+
+unsigned gen_add32(unsigned long v)
+{
+	char *op = "add";
+	unsigned l = WORD(v);
+	unsigned h = WORD(v >> 16);
+
+	if (v == 0)
+		return 1;
+
+	if (cpu_has_y) {
+		if (l) {
+			add_d_const(l);
+			swap_d_y();
+			printf("\tadcb #%u\n", BYTE(h));
+			printf("\tadca #%u\n", BYTE(h >> 8));
+			swap_d_y();
+		} else {
+			swap_d_y();
+			if (BYTE(h))
+				printf("\taddd #%u\n", h);
+			else
+				printf("\tadda #%u\n", BYTE(h >> 8));
+			swap_d_y();
+		}
+		return 1;
+	}
+	/* TODO: still directly fiddles with hireg */
+	if (l) {
+		add_d_const(l);
+		op = "adc";
+		if (h == 0) {
+			l = ++label;
+			printf("\tbcc X%u\n\tinc @hireg+1\n\tbne X%u\n\tinc @hireg\nX%u:\n", l, l, l);
+			return 1;
+		}
+	}
+	puts("\tpsha");
+	if (h & 0xFF) {
+		printf("\tldaa @hireg+1\n\t%sa #%u\n\tstaa @hireg+1\n", op, h & 0xFF);
+		op = "adc";
+		if (!(h & 0xFF00)) {
+			l = ++label;
+			printf("\tbcc X%u\n\tinc @hireg\nX%u:\n", l, l);
+			return 1;
+		}
+	}
+	printf("\tldaa @hireg\n\t%sa #%u\n\tstaa @hireg\n",
+				op, (h >> 8) & 0xFF);
+	puts("\tpula");
+	return 1;
+}
+
+
 /* Generate the stack frame */
 void gen_frame(unsigned size, unsigned aframe)
 {
@@ -453,9 +538,9 @@ static void op32_on_ptr(const char *op, const char *op2, unsigned off)
 		swap_d_y();
 	} else {
 		push_d();
-		puts("\tldaa @hireg\n\tldab @hireg+1");
+		load_d_hireg();
 		printf("\t%sb %u,x\n\t%sa %u,x\n", op2, off + 1, op2, off);
-		puts("\tstaa @hireg\n\tstab @hireg+1");
+		store_d_hireg();
 		pop_d();
 	}
 }
@@ -473,9 +558,9 @@ void op32d_on_ptr(const char *op, const char *op2, unsigned off)
 		swap_d_y();
 	} else {
 		push_d();
-		puts("\tldd @hireg");
+		load_d_hireg();
 		printf("\t%sb %u,x\n\t%sa %u,x\n", op2, off + 1, op2, off);
-		puts("\tstd @hireg");
+		store_d_hireg();
 		pop_d();
 	}
 }
@@ -486,11 +571,14 @@ void load32(register unsigned off)
 		printf("\tldd %u,x\n", off);
 		swap_d_y();
 		printf("\tldd %u,x\n", off + 2);
-	} else if (cpu_has_d)
-		printf("\tldd %u,x\n\tstd @hireg\n\tldd %u,x\n", off, off + 2);
-	else {
-		printf("\tldaa %u,x\n\tldab %u,x\n\tldx %u,x\n\tstx @hireg\n",
+	} else if (cpu_has_d) {
+		printf("\tldd %u,x\n", off);
+		store_d_hireg();
+		printf("\tldd %u,x\n", off + 2);
+	} else {
+		printf("\tldaa %u,x\n\tldab %u,x\n\tldx %u,x\n",
 			off + 2, off + 3, off);
+		store_x_hireg();
 		invalidate_x();
 	}
 }
@@ -500,11 +588,14 @@ void store32(register unsigned off, unsigned nr)
 	if (cpu_has_y)
 		printf("\tsty %u,x\n\tstd %u,x\n", off, off + 2);
 	else if (cpu_has_d) {
-		printf("\tstd %u,x\n\tldd @hireg\n\tstd %u,x\n", off + 2, off);
+		printf("\tstd %u,x\n", off + 2);
+		load_d_hireg();
+		printf("\tstd %u,x\n", off);
 		if (nr)
 			printf("\tldd %u,x\n", off + 2);
 	} else {
 		printf("\tstab %u,x\n\tstaa %u,x\n\tpsha\n", off + 3, off + 2);
+		/* FIXME: special case hireg still remains */
 		printf("\tldaa @hireg+1\n\tstaa %u,x\n\tldaa @hireg\n\tstaa %u,x\n\tpula\n", off + 1, off);
 	}
 }
@@ -1291,12 +1382,10 @@ unsigned gen_push(struct node *n)
 		push_d();
 		if (cpu_has_y)
 			puts("\tpshy");
-		else if (cpu_has_d) {
-			puts("\tldd @hireg");
+		else {
+			/* Would invalidating and using X be a win on 6800 */
+			load_d_hireg();
 			push_d();
-			invalidate_work();
-		} else {
-			puts("\tldaa @hireg+1\n\tpsha\n\tldaa @hireg\n\tpsha");
 			invalidate_work();
 		}
 		return 1;
