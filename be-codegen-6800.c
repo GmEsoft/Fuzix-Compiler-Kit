@@ -1137,6 +1137,7 @@ unsigned gen_shortcut(struct node *n)
 				printf("\tleau -%u,u\n", v);
 			else {
 				codegen_lr(r);
+				negate_d();
 				puts("\tleau d,u");
 			}
 			if (!nr)
