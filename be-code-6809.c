@@ -118,6 +118,38 @@ void gen_epilogue(unsigned size, unsigned argsize)
 	unreachable = 1;
 }
 
+/* We handle function arguments specially as we both push them to a different
+   stack and optimize them. The tree looks like this
+
+                 FUNCCALL|CALLNAME
+                  /
+	       ARGCOMMA
+	        /    \
+	      ...    EXPR
+	      /
+	    ARG
+ */
+
+static void argstack(struct node *n)
+{
+	codegen_lr(n);
+	gen_push(n);
+}
+
+void gen_fcall(struct node *n)
+{
+	if (n == NULL)
+		return;
+	if (n->op == T_ARGCOMMA) {
+		/* Recurse down arguments and stack then on the way up */
+		gen_fcall(n->left);
+		argstack(n->right);
+	} else {
+		argstack(n);
+	}
+	/* Final node done */
+}
+
 /*
  *	6809 implementation of the code generation section
  *	We have Y as the upper bits of the working value, and we have
@@ -842,7 +874,6 @@ static unsigned load_r_with(char reg, struct node *r, unsigned off)
 	case T_ARGUMENT:
 		v += argbase + frame_len;
 	case T_LOCAL:
-		/* TODO: will need a Y specific rule for HC11 */
 		printf("\tlea%c %u,s\n", reg, v + sp);
 		break;
 	case T_LREF:

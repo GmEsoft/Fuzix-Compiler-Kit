@@ -1107,6 +1107,38 @@ unsigned gen_shortcut(struct node *n)
 	/* Don't generate unreachable code */
 	if (unreachable)
 		return 1;
+
+	/* Handle function call argument subtrees specially, mostly for
+	   6809 although we have some opportunities to use ldx/pshx on 6303/803 */
+
+	/* We should never meet an ARGCOMMA as they are handled by
+	   gen_fcall */
+	if (n->op == T_ARGCOMMA)
+		error("a,");
+
+	if (n->op == T_FUNCCALL) {
+		/* Generate and stack all the arguments */
+		gen_fcall(l);
+		/* Generate the address of the function */
+		if (can_load_r_with(r, 0))
+			v = load_x_with(r, 0);
+		else {
+			codegen_lr(r);
+			v = 0;
+			make_x_d();
+		}
+		printf("\tjsr %d,x\n", v);
+		invalidate_all();
+		return 1;
+	}
+
+	if (n->op == T_CALLNAME) {
+		gen_fcall(l);
+		printf("\t%s %s+%u\n", jsr_op, namestr(n->snum), WORD(n->value));
+		invalidate_all();
+		return 1;
+	}
+
 	/* Handle operations that are of the form (OP (REG) (thing)) as we can't really
 	   talk about 'address' of a register variable for 6809 */
 	if (l && l->op == T_REG && cpu_is_09) {
@@ -1499,10 +1531,6 @@ unsigned gen_node(struct node *n)
 		sp -= get_stack_size(n->left->type);
 	v = n->value;
 	switch (n->op) {
-	case T_CALLNAME:
-		invalidate_all();
-		printf("\t%s %s+%u\n", jsr_op, namestr(n->snum), v);
-		return 1;
 	case T_DEREF:
 	case T_DEREFPLUS:
 		printf(";deref %u\n", v);
@@ -1846,11 +1874,6 @@ unsigned gen_node(struct node *n)
 	case T_MINUSEQ:
 		return do_stkeqop(n, "xminuseq");
 	/* Function calls that were not to a constant name */
-	case T_FUNCCALL:
-		make_x_d();
-		puts("\tjsr ,x");
-		invalidate_all();
-		return 1;
 	case T_BOOL:
 		n->flags |= ISBOOL;
 		if (!(n->right && (n->right->flags & ISBOOL)))

@@ -130,6 +130,39 @@ void gen_epilogue(unsigned size, unsigned argsize)
 	unreachable = 1;
 }
 
+/* We handle function arguments specially as we both push them to a different
+   stack and optimize them. The tree looks like this
+
+                 FUNCCALL|CALLNAME
+                  /
+	       ARGCOMMA
+	        /    \
+	      ...    EXPR
+	      /
+	    ARG
+ */
+
+static void argstack(struct node *n)
+{
+	codegen_lr(n);
+	gen_push(n);
+}
+
+void gen_fcall(struct node *n)
+{
+	if (n == NULL)
+		return;
+	if (n->op == T_ARGCOMMA) {
+		/* Recurse down arguments and stack then on the way up */
+		gen_fcall(n->left);
+		argstack(n->right);
+	} else {
+		argstack(n);
+	}
+	/* Final node done */
+}
+
+
 static unsigned make_with_op(char r, register uint8_t ev, register uint8_t tv)
 {
 	/* INC and DEC */
