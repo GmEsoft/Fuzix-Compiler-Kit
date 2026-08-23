@@ -59,13 +59,6 @@ void gen_segment(unsigned s)
 	}
 }
 
-void gen_switch(unsigned n, unsigned type)
-{
-	printf("\tldx #Sw%u\n\t%s __switch", n, jmp_op);
-	helper_type(type, 0);
-	putchar('\n');
-}
-
 void gen_switchdata(unsigned n, unsigned size)
 {
 	printf("Sw%d:\n\t.word %d\n", n, size);
@@ -103,6 +96,9 @@ static unsigned c_style(struct node *np)
 
 void gen_helpcall(struct node *n)
 {
+	/* If it had a second argument then the stack needs sorting */
+	if (n->left)
+		sync_stack();
 	/* Check both N and right because we handle casts to/from float in
 	   C call format */
 	if (c_style(n))

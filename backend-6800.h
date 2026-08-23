@@ -129,3 +129,4 @@ extern void op_on_ptr(struct node *n, const char *op, unsigned off);
 extern void opd_on_ptr(struct node *n, const char *op, const char *op2, unsigned off);
 extern unsigned cmp_op(struct node *n, const char *up, const char *op);
 extern void gen_fcall(struct node *n);
+extern void sync_stack(void);
