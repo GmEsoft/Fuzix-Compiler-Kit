@@ -179,3 +179,16 @@
 =
 	clra
 	clrb
+
+	ldd #1
+	jsr __bool
+=
+	ldd #1
+
+# The old value of A doesn't matter for bool ops
+	clra
+	subb %1
+	jsr bool%2
+=
+	subb %1
+	jsr bool%2
