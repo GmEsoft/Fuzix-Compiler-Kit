@@ -76,6 +76,8 @@ extern void set_b(uint8_t val);
 /* Code generation helpers */
 extern void push_d(void);
 extern void pop_d(void);
+extern void tfr_d_u(void);
+extern void tfr_u_d(void);
 extern unsigned gen_add32(unsigned long v);
 extern void load_d_const(uint16_t n);
 extern void load_a_const(uint8_t n);

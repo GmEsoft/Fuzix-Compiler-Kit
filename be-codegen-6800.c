@@ -1146,7 +1146,7 @@ unsigned gen_shortcut(struct node *n)
 		switch(n->op) {
 		case T_PLUSPLUS:
 			if (!nr)
-				puts("\ttfr u,d");
+				tfr_u_d();
 			printf("\tleau %u,u\n", v);
 			return 1;
 		case T_PLUSEQ:
@@ -1157,11 +1157,11 @@ unsigned gen_shortcut(struct node *n)
 				puts("\tleau d,u");
 			}
 			if (!nr)
-				puts("\ttfr u,d");
+				tfr_u_d();
 			return 1;
 		case T_MINUSMINUS:
 			if (!nr)
-				printf("\ttfr u,d\n");
+				tfr_u_d();
 			printf("\tleau -%u,u\n", v);
 			return 1;
 		case T_MINUSEQ:
@@ -1173,7 +1173,7 @@ unsigned gen_shortcut(struct node *n)
 				puts("\tleau d,u");
 			}
 			if (!nr)
-				puts("\ttfr u,d");
+				tfr_u_d();
 			return 1;
 		case T_STAREQ:
 			/* TODO: fast mul forms */
@@ -1651,11 +1651,11 @@ unsigned gen_node(struct node *n)
 	case T_RREF:
 		if (d_holds_node(n))
 			return 1;
-		puts("\ttfr u,d");
+		tfr_u_d();
 		set_d_node(n);
 		return 1;
 	case T_RSTORE:
-		puts("\ttfr d,u");
+		tfr_d_u();
 		set_d_node(n);
 		return 1;
 	case T_ARGUMENT:

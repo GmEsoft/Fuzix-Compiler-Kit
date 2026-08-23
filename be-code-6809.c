@@ -22,6 +22,20 @@ void pop_d(void)
 	puts("\tpuls d");
 }
 
+void tfr_u_d(void)
+{
+	puts("\ttfr u,d");
+	/* TODO: when tracking sorted D is now a copy of the regvar */
+	invalidate_work();
+}
+
+void tfr_d_u(void)
+{
+	puts("\ttfr d,u");
+	/* Don't track U yet but this will make D a copy of the regvar */
+}
+
+
 /*
  *	Perform an optimized 32bit constant add
  *

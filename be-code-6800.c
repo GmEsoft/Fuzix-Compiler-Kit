@@ -41,6 +41,16 @@ static void store_x_hireg(void)
 	puts("\tstx @hireg");
 }
 
+void tfr_u_d(void)
+{
+	error("ud");
+}
+
+void tfr_d_u(void)
+{
+	error("du");
+}
+
 /*
  *	Perform an optimized 32bit constant add
  *
@@ -1227,6 +1237,7 @@ unsigned load_x_with(struct node *r, unsigned off)
 unsigned load_u_with(struct node *r, unsigned off)
 {
 	error("ureg");
+	return 0;
 }
 
 unsigned cmp_direct(struct node *n, const char *uop, const char *op)
