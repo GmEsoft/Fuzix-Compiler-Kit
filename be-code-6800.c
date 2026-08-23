@@ -1516,13 +1516,3 @@ void gen_jtrue(const char *tail, unsigned n)
 	printf("\tjne L%d%s\n", n, tail);
 }
 
-void gen_switch(unsigned n, unsigned type)
-{
-	printf("\tldx #Sw%u\n\tjmp __switch", n);
-	helper_type(type, 0);
-	putchar('\n');
-}
-
-void sync_stack(void)
-{
-}

@@ -6,21 +6,12 @@
 #include "backend.h"
 #include "backend-6800.h"
 
-/* Remove define to turn this stuff off */
-/* This passes the tests but at the moment shows some odd fails on the Fuzix
-   kernel code so there's obviously more needed. It's also a lot of complexity
-   for a little return */
-/*#define TEST_DEFER_STACK	8 */
-
-
 static unsigned op8r_on_node(struct node *r, char reg, const char *op, unsigned off);
 static unsigned can_load_r8_simple(struct node *r, unsigned off);
 static unsigned load_r_with(char reg, struct node *r, unsigned off);
 
 unsigned label;		/* Used to hand out local labels in the form X%u */
-static unsigned stackslack;	/* How much cleanup we've skipped */
-static unsigned funcnest;	/* Count nested function calls so we get
-				   slack correct */
+
 void push_d(void)
 {
 	puts("\tpshs d");
@@ -44,22 +35,6 @@ void tfr_d_u(void)
 	/* Don't track U yet but this will make D a copy of the regvar */
 }
 
-static void do_adjust_s(unsigned n, unsigned sync)
-{
-	/* Correct any adjustment as well */
-	if (sync) {
-		n += stackslack;
-		sp -= stackslack;
-		stackslack = 0;
-	}
-	if (n)
-		printf("\tleas %u,s\n", WORD(n));
-}
-
-void sync_stack(void)
-{
-	do_adjust_s(0, 1);
-}
 
 /*
  *	Perform an optimized 32bit constant add
@@ -114,15 +89,13 @@ void gen_frame(unsigned size, unsigned aframe)
 {
 	argbase = ARGBASE;
 	frame_len = size;
-	stackslack = 0;
-	sp = 0;
 
 	if (func_flags & F_REG(1)) {
 		if (size <= 6)
 			pshframe(size + 2);
 		else {
 			puts("\tpshs u");
-			do_adjust_s(-size, 0);
+			adjust_s(-size, 0);
 		}
 		argbase += 2;
 		return;
@@ -130,16 +103,14 @@ void gen_frame(unsigned size, unsigned aframe)
 	if (size > 2 && size <= 8)
 		pshframe(size);
 	else
-		do_adjust_s(-size, 0);
+		adjust_s(-size, 0);
 	return;
 }
 
 void gen_epilogue(unsigned size, unsigned argsize)
 {
-	if (sp != stackslack)
+	if (sp)
 		error("sp");
-
-	size += stackslack;
 
 	/* To handle the 4 case we'd need to know the return type of the
 	   function in full so we could use Y TODO */
@@ -162,8 +133,7 @@ void gen_epilogue(unsigned size, unsigned argsize)
 			return;
 		}
 	}
-	/* Force the size including the slack */
-	do_adjust_s(size, 0);
+	adjust_s(size, (func_flags & F_VOIDRET) ? 0 : 1);
 	if (func_flags & F_REG(1))
 		puts("\tpuls u,pc");
 	else
@@ -283,9 +253,7 @@ static void argstack(struct node *n)
 		/* Should try and load swapping the halves into
 		   the next two registers */
 		codegen_lr(n);
-		push_d();
-		puts("\tpshs y");
-		sp += 4;
+		gen_push(n);
 		break;
 	}
 }
@@ -384,9 +352,6 @@ static void do_fcall(struct node *n)
 
 void gen_fcall(struct node *n)
 {
-	/* Decremented when we see the cleanup callback */
-	/* 6809 always does cleanup so count will track */
-	funcnest++;
 	*fstk++ = stackop;
 	*rstk++ = rused;
 	stackop = 0;
@@ -603,23 +568,9 @@ void pop_x(void)
  */
 void adjust_s(int n, unsigned save_d)
 {
-#ifndef TEST_DEFER_STACK
-	do_adjust_s(n, 1);
-#else
-	funcnest--;
-	if (funcnest)
-		/* We are building nested function arguments so need the
-		   stack correct for the argument chain */
-		do_adjust_s(n, 0);
-	else if (stackslack + n <= TEST_DEFER_STACK) {
-		stackslack += n;
-		/* SP offset moves by slack */
-		sp += n;
-	} else {
-		/* Big enough to clean up */
-		do_adjust_s(n, 1);
-	}
-#endif
+	if (n)
+		printf("\tleas %d,s\n", n);
+	return;
 }
 
 void op8_on_ptr(const char *op, unsigned off)
@@ -1405,9 +1356,6 @@ unsigned cmp_op(struct node *n, const char *uop, const char *op)
 unsigned gen_push(struct node *n)
 {
 	unsigned size = get_size(n->type);
-	/* we might be off stack kilter at this point but helpers care as
-	   do our inlines */
-	do_adjust_s(0,1);
 	/* Our push will put the object on the stack, so account for it */
 	sp += get_stack_size(n->type);
 	switch(size) {
@@ -1430,13 +1378,11 @@ void gen_label(const char *tail, unsigned n)
 {
 	invalidate_all();
 	unreachable = 0;
-	sync_stack();
 	printf("L%d%s:\n", n, tail);
 }
 
 unsigned gen_exit(const char *tail, unsigned n)
 {
-	sync_stack();
 	printf("\t%s L%d%s\n", jmp_op, n, tail);
 	unreachable = 1;
 	return 0;
@@ -1446,7 +1392,6 @@ void gen_jump(const char *tail, unsigned n)
 {
 	if (unreachable)
 		return;
-	sync_stack();
 	printf("\t%s L%d%s\n", jmp_op, n, tail);
 	unreachable = 1;
 }
@@ -1455,7 +1400,6 @@ void gen_jfalse(const char *tail, unsigned n)
 {
 	if (unreachable)
 		return;
-	sync_stack();
 	printf("\tbeq L%d%s\n", n, tail);
 }
 
@@ -1463,15 +1407,5 @@ void gen_jtrue(const char *tail, unsigned n)
 {
 	if (unreachable)
 		return;
-	sync_stack();
 	printf("\tbne L%d%s\n", n, tail);
 }
-
-void gen_switch(unsigned n, unsigned type)
-{
-	sync_stack();
-	printf("\tldx #Sw%u\n\t%s __switch", n, jmp_op);
-	helper_type(type, 0);
-	putchar('\n');
-}
-
