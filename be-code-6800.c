@@ -114,6 +114,12 @@ unsigned gen_add32(unsigned long v)
 	return 1;
 }
 
+void gen_prologue(const char *name)
+{
+	unreachable = 0;
+	invalidate_all();
+	printf("%s:\n", name);
+}
 
 /* Generate the stack frame */
 void gen_frame(unsigned size, unsigned aframe)
@@ -1472,5 +1478,41 @@ unsigned gen_push(struct node *n)
 		return 1;
 	}
 	return 0;
+}
+
+void gen_label(const char *tail, unsigned n)
+{
+	invalidate_all();
+	unreachable = 0;
+	printf("L%d%s:\n", n, tail);
+}
+
+unsigned gen_exit(const char *tail, unsigned n)
+{
+	printf("\tjmp L%d%s\n", n, tail);
+	unreachable = 1;
+	return 0;
+}
+
+void gen_jump(const char *tail, unsigned n)
+{
+	if (unreachable)
+		return;
+	printf("\t%s L%d%s\n", jmp_op, n, tail);
+	unreachable = 1;
+}
+
+void gen_jfalse(const char *tail, unsigned n)
+{
+	if (unreachable)
+		return;
+	printf("\tjeq L%d%s\n", n, tail);
+}
+
+void gen_jtrue(const char *tail, unsigned n)
+{
+	if (unreachable)
+		return;
+	printf("\tjne L%d%s\n", n, tail);
 }
 

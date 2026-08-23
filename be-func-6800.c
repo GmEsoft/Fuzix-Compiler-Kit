@@ -59,55 +59,6 @@ void gen_segment(unsigned s)
 	}
 }
 
-void gen_prologue(const char *name)
-{
-	unreachable = 0;
-	invalidate_all();
-	printf("%s:\n", name);
-}
-
-void gen_label(const char *tail, unsigned n)
-{
-	invalidate_all();
-	unreachable = 0;
-	printf("L%d%s:\n", n, tail);
-}
-
-unsigned gen_exit(const char *tail, unsigned n)
-{
-	printf("\t%s L%d%s\n", jmp_op, n, tail);
-	unreachable = 1;
-	return 0;
-}
-
-void gen_jump(const char *tail, unsigned n)
-{
-	if (unreachable)
-		return;
-	printf("\t%s L%d%s\n", jmp_op, n, tail);
-	unreachable = 1;
-}
-
-void gen_jfalse(const char *tail, unsigned n)
-{
-	if (unreachable)
-		return;
-	if (cpu_is_09)
-		printf("\tbeq L%d%s\n", n, tail);
-	else
-		printf("\tjeq L%d%s\n", n, tail);
-}
-
-void gen_jtrue(const char *tail, unsigned n)
-{
-	if (unreachable)
-		return;
-	if (cpu_is_09)
-		printf("\tbne L%d%s\n", n, tail);
-	else
-		printf("\tjne L%d%s\n", n, tail);
-}
-
 void gen_switch(unsigned n, unsigned type)
 {
 	printf("\tldx #Sw%u\n\t%s __switch", n, jmp_op);
