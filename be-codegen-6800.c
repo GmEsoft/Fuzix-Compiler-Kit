@@ -134,6 +134,21 @@ static unsigned is_simple(struct node *n)
 	return 0;
 }
 
+static unsigned free_cast(unsigned nt, unsigned rt)
+{
+	/* Pointers act as ushort */
+	if (PTR(nt))
+		nt = USHORT;
+	if (PTR(rt))
+		rt = USHORT;
+	/* If the types match except for sign then no work */
+	if (nt == rt || (nt ^ rt) == UNSIGNED)
+		return 1;
+	/* If the types are integer and the new type is "smaller" then
+	   no work is done but we need the info from the cast */
+	return 0;
+}
+
 /*
  *	Our chance to do tree rewriting. We don't do much
  *	at this point, but we do rewrite name references and function calls
@@ -149,8 +164,7 @@ struct node *gen_rewrite_node(struct node *n)
 
 	/* Eliminate casts for sign, pointer conversion or same */
 	if (op == T_CAST && cast_fold_safe(r->op)) {
-		if (nt == r->type || (nt ^ r->type) == UNSIGNED ||
-		 (PTR(nt) && PTR(r->type))) {
+		if (free_cast(nt, r->type)) {
 			free_node(n);
 			r->type = nt;
 			return r;
