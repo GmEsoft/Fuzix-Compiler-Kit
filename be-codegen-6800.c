@@ -287,10 +287,11 @@ struct node *gen_rewrite_node(struct node *n)
 		return n;
 	}
 	/* *(reg + offset) =  Optimize this specially as it occurs a lot */
-	if (op == T_EQ && l->op == T_PLUS && l->left->op == T_RREF &&
+	if ((op == T_EQ || op == T_EQPLUS) && l->op == T_PLUS && l->left->op == T_RREF &&
 		l->right->op == T_CONSTANT) {
 		n->op = T_REQ;
-		n->snum = l->right->value;	/* Offset to add */
+		/* Offset of EQPLUS in n->value, plus right side */
+		n->snum = n->value + l->right->value;	/* Offset to add */
 		n->value = l->left->value;	/* Register number */
 		free_node(l->right);		/* Discard constant */
 		free_node(l->left);		/* Discard T_REG */
@@ -299,10 +300,10 @@ struct node *gen_rewrite_node(struct node *n)
 		return n;
 	}
 	/* *regptr = */
-	if (op == T_EQ && l->op == T_RREF) {
+	if ((op == T_EQ || op == T_EQPLUS) && l->op == T_RREF) {
 		n->op = T_REQ;
-		n->snum = 0;
-		n->value = l->value;
+		n->snum = n->value;	/* Copy over the addition */
+		n->value = l->value;	/* Set the register */
 		n->left = NULL;
 		free_node(l);
 		return n;
