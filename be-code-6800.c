@@ -144,6 +144,46 @@ void gen_epilogue(unsigned size, unsigned argsize)
 
 static void argstack(struct node *n)
 {
+	unsigned s = get_size(n->type);
+	unsigned v = n->value;
+
+	/* TODO: review size 4 and long for HC11 - might want to load upper
+	   via Y */
+
+	/* If D already holds our object then push it */
+	if (d_holds_node(n) && s == 2) {
+		gen_push(n);
+		return;
+	}
+	/* TODO: same for X when we get better tracking */
+
+	/* If we are loading a constant 0 then it's a better guess
+	   to clra/clrb as it's likely useful to get zeros into A */
+	if (s == 2 && n->op == T_CONSTANT && n->value == 0) {
+		load_d_const(0);
+		gen_push(n);
+		return;
+	}
+	/* If D already holds our value */
+	if (s == 2 && n->op == T_CONSTANT && a_valid && b_valid &&
+		a_val == (v >> 8) && b_val == BYTE(v)) {
+		/* Already in D - need to clean this and tracking up */
+		gen_push(n);
+		return;
+	}
+	/* This relies upon off 0 and 2 giving the same answer for can_ */
+	if (cpu_has_d && s > 1 && n->op != T_LOCAL && can_load_r_with(n, 0)) {
+		/* T_LOCAL can end up with an offset and we don't want
+		   an offset are we are not doing a deref */
+		load_x_with(n, 0);
+		puts("\tpshx");
+		if (s == 4) {
+			load_x_with(n,2);
+			puts("\tpshx");
+		}
+		sp += s;
+		return;
+	}
 	codegen_lr(n);
 	gen_push(n);
 }
@@ -1123,8 +1163,6 @@ unsigned can_load_r_simple(struct node *r, unsigned off)
 	case T_CONSTANT:
 	case T_NREF:
 	case T_NAME:
-	case T_RREF:
-	case T_RDEREF:
 		return 1;
 	}
 	return 0;
@@ -1188,7 +1226,7 @@ unsigned load_x_with(struct node *r, unsigned off)
 /* 6809 specific register loading */
 unsigned load_u_with(struct node *r, unsigned off)
 {
-	return load_r_with('u', r, off);
+	error("ureg");
 }
 
 unsigned cmp_direct(struct node *n, const char *uop, const char *op)
