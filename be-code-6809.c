@@ -56,7 +56,6 @@ unsigned gen_add32(unsigned long v)
 		return 1;
 
 	if (l) {
-		printf(";gen_add32\n");
 		add_d_const(l);
 		printf("\tbcc X%u\n", ++label);
 		printf("\tleay 1,y\nX%u:\n", label);
@@ -206,20 +205,14 @@ static void argstack(struct node *n)
 {
 	unsigned op;
 	unsigned v;
-	printf(";STKOP %o, ", stackop);
 	stackop >>= 3;
 	op = stackop & 7;
-	printf("OP %u\n", op);
 	if (op == 0) {
 		pushregs();
 		stackop = *--fstk;
 		rused = *--rstk;
-		printf("; push done stackop now %o rused %u sp %u\n",
-			stackop, rused, sp);
-		printf(";STKOP %o, ", stackop);
 		stackop >>= 3;
 		op = stackop & 7;
-		printf("OP %u\n", op);
 	}
 	switch(op) {
 	case 0:
@@ -231,7 +224,6 @@ static void argstack(struct node *n)
 		op8_on_node(n, "ld", 0);
 		break;
 	case USE_D:
-		printf(";codegen\n");
 		codegen_lr(n);
 		break;
 	case USE_X:
@@ -264,20 +256,15 @@ static void prep_push(struct node *n)
 	unsigned s = get_size(n->type);
 
 	stackop <<= 3;
-	printf(";arg size %u\n", s);
 	/* Downward we try and assign things to the ideal register */
 	if (s == 1) {
-		printf(";node is %X\n", n->op);
 		if (rused == 0 && can_load_r8_simple(n, 0)) {
-			printf("; will use A\n");
 			stackop |= USE_A;
 			rused |= R_A;
 		} else if (rused == R_A && can_load_r8_simple(n, 0)) {
-			printf("; will use B\n");
 			stackop |= USE_B;
 			rused |= R_B;
 		} else {
-			printf("; push and use B\n");
 			if(stackop) {
 				*fstk++ = stackop;
 				*rstk++ = rused;
@@ -297,26 +284,21 @@ static void prep_push(struct node *n)
 			stackop |= USE_U;
 			*fstk++ = stackop << 3;
 			*rstk++ = rused | R_U;
-			printf("; reg finish\n");
 			stackop = 0;
 			rused = 0;
 		} else if (rused == 0 && can_load_r_simple(n, 0) && n->op != T_LOCAL && n->op != T_ARGUMENT) {
 			stackop |= USE_D;
 			rused |= R_A|R_B;
-			printf("; use D\n");
 		} else if (can_load_r_with(n, 0) && (rused & (R_X|R_Y)) != (R_X|R_Y)) {
 			/* X and Y not yet used so can use X */
 			if (rused & R_X) {
 				stackop |= USE_Y;
 				rused |= R_Y;
-				printf("; use Y\n");
 			} else {
 				stackop |= USE_X;
 				rused |= R_X;
-				printf("; use X\n");
 			}
 		} else {
-			printf(";can't merge %o %x\n", stackop, rused);
 			/* Push any outstanding as the current op */
 			if (stackop) {
 				*fstk++ = stackop;
@@ -328,7 +310,6 @@ static void prep_push(struct node *n)
 			/* Prepare for next op */
 			stackop = 0;
 			rused = 0;
-			printf(";start new push\n");
 		}
 	} else {
 		/* Will tackle long stuff later */
@@ -356,8 +337,6 @@ static void do_fcall(struct node *n)
 	} else {
 		prep_push(n);
 		stackop <<= 3;
-		printf(";reached bottom stackop = %X rused %X\n",
-			stackop, rused);
 		argstack(n);
 		/* May be a finall push queued here */
 	}
@@ -366,17 +345,14 @@ static void do_fcall(struct node *n)
 
 void gen_fcall(struct node *n)
 {
-	printf(";gen_fcall (%p %p %o %x)\n", (void *)fstk, (void *)rstk, stackop, rused);
 	*fstk++ = stackop;
 	*rstk++ = rused;
 	stackop = 0;
 	rused = 0;
 	do_fcall(n);
 	pushregs();
-	printf(";gen_fcall done\n");
 	rused = *--rstk;
 	stackop = *--fstk;
-	printf(";gen_fcall exit (%p %p %o %x)\n", (void *)fstk, (void *)rstk, stackop, rused);
 }
 
 /*
@@ -436,8 +412,6 @@ void load_d_const(uint16_t n)
 {
 	unsigned hi,lo;
 
-	printf(";d_const a valid %u b valid %u\n",
-		a_valid, b_valid);
 	lo = n & 0xFF;
 	hi = n >> 8;
 
@@ -988,7 +962,6 @@ static void left16(unsigned v)
 			repeated_op(v, "lsla");
 		}
 	} else {
-		printf(";left %u %u\n", optsize, v);
 		if (optsize && v > 2)
 			printf("\tjsr __lsl%u\n", v);
 		else while(v--)
