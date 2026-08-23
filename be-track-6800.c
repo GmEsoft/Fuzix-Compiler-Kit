@@ -33,14 +33,17 @@ void invalidate_x(void)
 	x_fprel = 0;
 }
 
+/* If we lose tracking on A or B then defacto we lost tracking on D */
 void invalidate_a(void)
 {
 	a_valid = 0;
+	d_valid = 0;
 }
 
 void invalidate_b(void)
 {
 	b_valid = 0;
+	d_valid = 0;
 }
 
 void invalidate_d(void)

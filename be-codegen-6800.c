@@ -1537,7 +1537,7 @@ unsigned gen_node(struct node *n)
 		make_x_d();
 		if (s == 1) {
 			op8_on_ptr("ld", v);
-			invalidate_a();
+			invalidate_b();
 			return 1;
 		}
 		if (s == 2) {
