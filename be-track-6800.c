@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include "compiler.h"
 #include "backend.h"
 #include "backend-6800.h"
@@ -19,6 +20,7 @@ unsigned a_valid;
 unsigned b_valid;
 unsigned d_valid;
 static struct node d_node;
+static const char *trackf;
 
 void invalidate_all(void)
 {
@@ -154,4 +156,35 @@ void set_b(uint8_t val)
 	b_val = val;
 	b_valid = 1;
 	d_valid = 0;
+}
+
+void output_nf(const char *p, ...)
+{
+	va_list v;
+	va_start(v, p);
+	putchar('\t');
+	vprintf(p, v);
+	putchar('\n');
+	va_end(v);
+}
+
+void output(const char *p, ...)
+{
+	va_list v;
+	va_start(v, p);
+	putchar('\t');
+	vprintf(p, v);
+	putchar('\n');
+	va_end(v);
+	trackf = NULL;		/* Flags no longer known */
+}
+
+void outlabel(const char *p, ...)
+{
+	va_list v;
+	va_start(v, p);
+	vprintf(p, v);
+	putchar(':');
+	putchar('\n');
+	va_end(v);
 }

@@ -36,23 +36,23 @@ unsigned unreachable;		/* Code following an unconditional jump */
 /* Export the C symbol */
 void gen_export(const char *name)
 {
-	printf("	.export %s\n", name);
+	output(".export %s", name);
 }
 
 void gen_segment(unsigned s)
 {
 	switch(s) {
 	case A_CODE:
-		printf("\t.%s\n", codeseg);
+		output(".%s", codeseg);
 		break;
 	case A_DATA:
-		puts("\t.data");
+		output(".data");
 		break;
 	case A_LITERAL:
-		puts("\t.literal");
+		output(".literal");
 		break;
 	case A_BSS:
-		puts("\t.bss");
+		output(".bss");
 		break;
 	default:
 		error("gseg");
@@ -61,26 +61,29 @@ void gen_segment(unsigned s)
 
 void gen_switch(unsigned n, unsigned type)
 {
-	printf("\tldx #Sw%u\n\t%s __switch", n, jmp_op);
+	/* Can't do nicely with output but should be fine */
+	output("ldx #Sw%u", n);
+	printf("\t%s __switch", jmp_op);
 	helper_type(type, 0);
 	putchar('\n');
 }
 
 void gen_switchdata(unsigned n, unsigned size)
 {
-	printf("Sw%d:\n\t.word %d\n", n, size);
+	outlabel("Sw%u", n);
+	output_nf(".word %d", size);
 }
 
 void gen_case_label(unsigned tag, unsigned entry)
 {
 	unreachable = 0;
 	invalidate_all();
-	printf("Sw%d_%d:\n", tag, entry);
+	outlabel("Sw%d_%d", tag, entry);
 }
 
 void gen_case_data(unsigned tag, unsigned entry)
 {
-	printf("\t.word Sw%d_%d\n", tag, entry);
+	output_nf(".word Sw%d_%d", tag, entry);
 }
 
 /* True if the helper is to be called C style */
@@ -133,57 +136,57 @@ void gen_helpclean(struct node *n)
 			adjust_s(s, 1);
 		/* C style ops that are ISBOOL didn't set the bool flags */
 		if (n->flags & ISBOOL)
-			puts("\ttstb");
+			output("tstb");
 	}
 }
 
 void gen_data_label(const char *name, unsigned align)
 {
-	printf("%s:\n", name);
+	outlabel("%s", name);
 }
 
 void gen_space(unsigned value)
 {
-	printf("\t.ds %d\n", value);
+	output_nf(".ds %d", value);
 }
 
 void gen_text_data(struct node *n)
 {
-	printf("\t.word T%d\n", n->snum);
+	output_nf(".word T%d", n->snum);
 }
 
 void gen_literal(unsigned n)
 {
 	if (n)
-		printf("T%d:\n", n);
+		outlabel("T%d", n);
 }
 
 void gen_name(struct node *n)
 {
-	printf("\t.word %s+%d\n", namestr(n->snum), WORD(n->value));
+	output(".word %s+%d", namestr(n->snum), WORD(n->value));
 }
 
 void gen_value(unsigned type, unsigned long value)
 {
 	if (PTR(type)) {
-		printf("\t.word %u\n", (unsigned) value);
+		output_nf(".word %u", WORD(value));
 		return;
 	}
 	switch (type) {
 	case CCHAR:
 	case UCHAR:
-		printf("\t.byte %u\n", (unsigned) value & 0xFF);
+		output_nf(".byte %u", BYTE(value));
 		break;
 	case CSHORT:
 	case USHORT:
-		printf("\t.word %d\n", (unsigned) value & 0xFFFF);
+		output_nf(".word %d", WORD(value));
 		break;
 	case CLONG:
 	case ULONG:
 	case FLOAT:
 		/* We are big endian */
-		printf("\t.word %d\n", (unsigned) ((value >> 16) & 0xFFFF));
-		printf("\t.word %d\n", (unsigned) (value & 0xFFFF));
+		output_nf(".word %d", WORD(value >> 16));;
+		output_nf(".word %d", WORD(value));
 		break;
 	default:
 		error("unsuported type");
@@ -224,8 +227,8 @@ void gen_start(void)
 	}
 	/* For the moment. Needs adding to assembler for 6809 v 6309 */
 	if (cpu != 6809 && cpu != 6811)
-		printf("\t.setcpu %u\n", cpu);
-	puts("\t.code");
+		output(".setcpu %u", cpu);
+	output(".code");
 }
 
 void gen_end(void)
