@@ -185,6 +185,19 @@
 =
 	ldd #1
 
+# Cast or logic/bool
+	clra
+	jsr __bool
+=
+	jsr __boolc
+
+	clra
+	andb %1
+	jsr __bool
+=
+	andb %1
+	jsr __boolc
+
 # The old value of A doesn't matter for bool ops
 	clra
 	subb %1
@@ -192,3 +205,10 @@
 =
 	subb %1
 	jsr bool%2
+
+# Need to sort this out in compiler eventually
+	tfr u,x
+	leax %1,x
+=
+	leax %1,u
+
