@@ -6,6 +6,9 @@
 #include "backend.h"
 #include "backend-6800.h"
 
+static unsigned op8r_on_node(struct node *r, char reg, const char *op, unsigned off);
+static unsigned load_r_with(char reg, struct node *r, unsigned off);
+
 unsigned label;		/* Used to hand out local labels in the form X%u */
 
 void push_d(void)
@@ -31,7 +34,6 @@ void pop_d(void)
 
 unsigned gen_add32(unsigned long v)
 {
-	char *op = "add";
 	unsigned l = WORD(v);
 	unsigned h = WORD(v >> 16);
 
@@ -71,7 +73,7 @@ void gen_frame(unsigned size, unsigned aframe)
 		if (size <= 6)
 			pshframe(size + 2);
 		else {
-			puts("pshs u");
+			puts("\tpshs u");
 			adjust_s(-size, 0);
 		}
 		argbase += 2;
@@ -130,24 +132,230 @@ void gen_epilogue(unsigned size, unsigned argsize)
 	    ARG
  */
 
-static void argstack(struct node *n)
+#define R_A		1
+#define R_B		2
+#define R_X		4
+#define R_Y		8
+#define R_U		16
+
+#define USE_A		1
+#define USE_B		2
+#define USE_D		3
+#define USE_X		4
+#define USE_Y		5
+#define USE_U		6
+#define USE_L		7
+
+#define NCALL		16		/* For now TODO */
+
+static uint8_t rstk_s[NCALL];		/* Register mask for each push */
+static uint32_t fstk_s[NCALL];		/* Operation list for each push */
+static uint8_t *rstk = rstk_s;
+static uint32_t *fstk = fstk_s;
+static uint8_t rused;
+static uint32_t stackop;
+
+static void pushregs(void)
 {
-	codegen_lr(n);
-	gen_push(n);
+	char *rptr = "abxyu";
+
+	if (rused == 0)
+		return;
+
+	/* We have the registers loaded, now push and clean up the
+	   tracking stack */
+	printf("\tpshs ");
+	if (rused & R_A)
+		sp++;
+	if (rused & R_B)
+		sp++;
+	if (rused & R_X)
+		sp += 2;
+	if (rused & R_Y)
+		sp += 2;
+	if (rused & R_U)
+		sp += 2;
+	while(rused) {
+		if (rused & 1) {
+			putchar(*rptr);
+			if (rused > 1)
+				putchar(',');
+		}
+		rptr++;
+		rused >>= 1;
+	}
+	putchar('\n');
 }
 
-void gen_fcall(struct node *n)
+static void argstack(struct node *n)
+{
+	unsigned op;
+	unsigned v;
+	printf(";STKOP %o, ", stackop);
+	stackop >>= 3;
+	op = stackop & 7;
+	printf("OP %u\n", op);
+	if (op == 0) {
+		pushregs();
+		stackop = *--fstk;
+		rused = *--rstk;
+		printf("; push done stackop now %o rused %u sp %u\n",
+			stackop, rused, sp);
+		printf(";STKOP %o, ", stackop);
+		stackop >>= 3;
+		op = stackop & 7;
+		printf("OP %u\n", op);
+	}
+	switch(op) {
+	case 0:
+		error("astk");
+	case USE_A:
+		op8r_on_node(n, 'a', "ld", 0);
+		break;
+	case USE_B:
+		op8_on_node(n, "ld", 0);
+		break;
+	case USE_D:
+		printf(";codegen\n");
+		codegen_lr(n);
+		break;
+	case USE_X:
+		v = load_x_with(n, 0);
+		if (v) {
+			printf("\tleax %u,x\n",  WORD(v));
+			invalidate_x();	/* for now */
+		}
+		break;
+	case USE_Y:
+		v= load_r_with('y', n, 0);
+		if (v)
+			printf("\tleay %u,y\n",  WORD(v));
+		break;
+	case USE_U:
+		/* Already usable */
+		break;
+	/* Longs not yet converted */
+	case USE_L:
+		codegen_lr(n);
+		gen_push(n);
+		break;
+	}
+}
+
+static void prep_push(struct node *n)
+{
+	unsigned s = get_size(n->type);
+
+	stackop <<= 3;
+	printf(";arg size %u\n", s);
+	/* Downward we try and assign things to the ideal register */
+	if (s == 1) {
+		printf(";node is %X\n", n->op);
+		if (rused == 0 && can_load_r_simple(n, 0)) {
+			printf("; will use A\n");
+			stackop |= USE_A;
+			rused |= R_A;
+		} else if (rused == R_A && can_load_r_simple(n, 0)) {
+			printf("; will use B\n");
+			stackop |= USE_B;
+			rused |= R_B;
+		} else {
+			printf("; push and use B\n");
+			if(stackop) {
+				*fstk++ = stackop;
+				*rstk++ = rused;
+			}
+			stackop = USE_B;
+			rused = R_B;
+		}
+	} else if (s == 2) {
+		/* A or B or both pushed already ? */
+		/* We might have X used but not D because of pushing
+		   a local address */
+		if (n->op == T_RREF) {
+			stackop |= USE_U;
+			*fstk++ = stackop << 3;
+			*rstk++ = rused | R_U;
+			printf("; reg finish\n");
+			stackop = 0;
+			rused = 0;
+		} else if (rused == 0 && can_load_r_simple(n, 0) && n->op != T_LOCAL && n->op != T_ARGUMENT) {
+			stackop |= USE_D;
+			rused |= R_A|R_B;
+			printf("; use D\n");
+		} else if (can_load_r_with(n, 0) && (rused & (R_X|R_Y)) != (R_X|R_Y)) {
+			/* X and Y not yet used so can use X */
+			if (rused & R_X) {
+				stackop |= USE_Y;
+				rused |= R_Y;
+				printf("; use Y\n");
+			} else {
+				stackop |= USE_X;
+				rused |= R_X;
+				printf("; use X\n");
+			}
+		} else {
+			printf(";can't merge %o %x\n", stackop, rused);
+			/* Push any outstanding as the current op */
+			if (stackop) {
+				*fstk++ = stackop;
+				*rstk++ = rused;
+			}
+			/* Push ourselves an op */
+			*fstk++ = USE_D << 3;
+			*rstk++ = R_A | R_B;
+			/* Prepare for next op */
+			stackop = 0;
+			rused = 0;
+			printf(";start new push\n");
+		}
+	} else {
+		/* Will tackle long stuff later */
+		if (stackop) {
+			*fstk++ = stackop;
+			*rstk++ = rused;
+		}
+		*fstk++ = USE_L << 3;
+		*rstk++ = 0;	/* handled by gen_push instead */
+		stackop = 0;
+		rused = 0;
+		/* Handled via the gen_push so it will fix sp itself */
+	}
+}
+
+static void do_fcall(struct node *n)
 {
 	if (n == NULL)
 		return;
 	if (n->op == T_ARGCOMMA) {
 		/* Recurse down arguments and stack then on the way up */
-		gen_fcall(n->left);
+		prep_push(n->right);
+		do_fcall(n->left);
 		argstack(n->right);
 	} else {
+		prep_push(n);
+		stackop <<= 3;
+		printf(";reached bottom stackop = %X rused %X\n",
+			stackop, rused);
 		argstack(n);
+		/* May be a finall push queued here */
 	}
 	/* Final node done */
+}
+
+void gen_fcall(struct node *n)
+{
+	printf(";gen_fcall (%p %p %o %x)\n", (void *)fstk, (void *)rstk, stackop, rused);
+	*fstk++ = stackop;
+	*rstk++ = rused;
+	stackop = 0;
+	rused = 0;
+	do_fcall(n);
+	pushregs();
+	printf(";gen_fcall done\n");
+	rused = *--rstk;
+	stackop = *--fstk;
+	printf(";gen_fcall exit (%p %p %o %x)\n", (void *)fstk, (void *)rstk, stackop, rused);
 }
 
 /*
@@ -207,6 +415,8 @@ void load_d_const(uint16_t n)
 {
 	unsigned hi,lo;
 
+	printf(";d_const a valid %u b valid %u\n",
+		a_valid, b_valid);
 	lo = n & 0xFF;
 	hi = n >> 8;
 
@@ -481,39 +691,45 @@ unsigned can_load_d_nox(struct node *n, unsigned off)
 }
 
 /* These functions must not touch X on the 6809, they can on others */
-unsigned op8_on_node(struct node *r, const char *op, unsigned off)
+static unsigned op8r_on_node(struct node *r, char reg, const char *op, unsigned off)
 {
 	unsigned v = r->value;
 	unsigned store = 0;
 
-	invalidate_work();
+	invalidate_work();	/* FIXME */
 
 	switch(r->op) {
 	case T_LSTORE:
 		store = 1;
 	case T_LREF:
-		printf("\t%sb %u,s\n", op, off + v + sp);
+		printf("\t%s%c %u,s\n", op, reg, off + v + sp);
 		break;
 	case T_LDEREF:
 		if (r->snum)
 			return 0;
-		printf("\t%sb [%u,s]\n", op, off + v + sp);
+		printf("\t%s%c [%u,s]\n", op, reg, off + v + sp);
 		break;
 	case T_NSTORE:
 		store = 1;
 	case T_CONSTANT:
 	case T_NREF:
 	case T_NAME:
-		printf("\t%sb %s\n", op, addr_form(r, off, 1));
+		printf("\t%s%c %s\n", op, reg, addr_form(r, off, 1));
 		break;
 	default:
 		return 0;
 	}
+	/* FIXME for constant load */
 	if (store)
 		invalidate_mem();
 	else
 		invalidate_work();
 	return 1;
+}
+
+unsigned op8_on_node(struct node *r, const char *op, unsigned off)
+{
+	return op8r_on_node(r, 'b', op, off);
 }
 
 /* Do the low byte first in case it's add adc etc */
@@ -594,6 +810,7 @@ static unsigned op16r_on_node(struct node *r, char reg, const char *op, unsigned
 	case T_LSTORE:
 		invalidate_mem();
 	case T_LREF:
+		v = r->value;
 		printf("\t%s%c %u,s\n", op, reg, v + off + sp);
 		break;
 	case T_NSTORE:
@@ -602,6 +819,16 @@ static unsigned op16r_on_node(struct node *r, char reg, const char *op, unsigned
 	case T_NREF:
 	case T_NAME:
 		printf("\t%s%c %s\n", op, reg, addr_form(r, off, 2));
+		break;
+	/* These two cases will be doable on the left with right const */
+	case T_MINUS:
+	case T_PLUS:
+		v = r->right->value;
+		if (r->op == T_MINUS)
+			v = -v;
+		op16r_on_node(r->left, reg, op, off);
+		printf("\tlea%c %u,%c\n", reg, WORD(v), reg);
+		break;
 	default:
 		return 0;
 	}
@@ -856,7 +1083,8 @@ unsigned can_load_r_with(struct node *r, unsigned off)
 		return 1;
 	case T_PLUS:
 	case T_MINUS:
-		if (!can_load_r_with(r->left, off))
+		/* For now - we ought to be able to recurse these */
+		if (!can_load_r_simple(r->left, off))
 			return 0;
 		if (r->right->op != T_CONSTANT)
 			return 0;
@@ -900,7 +1128,7 @@ static unsigned load_r_with(char reg, struct node *r, unsigned off)
 	case T_MINUS:
 		if (cpu_is_09 && can_load_r_simple(r->left, off) &&
 			r->right->op == T_CONSTANT) {
-			load_r_with(reg, r->right, off);
+			load_r_with(reg, r->left, off);
 			return -r->right->value;
 		}
 		break;
