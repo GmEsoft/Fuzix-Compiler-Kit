@@ -7,6 +7,7 @@
 #include "backend-6800.h"
 
 static unsigned op8r_on_node(struct node *r, char reg, const char *op, unsigned off);
+static unsigned can_load_r8_simple(struct node *r, unsigned off);
 static unsigned load_r_with(char reg, struct node *r, unsigned off);
 
 unsigned label;		/* Used to hand out local labels in the form X%u */
@@ -236,6 +237,8 @@ static void argstack(struct node *n)
 		break;
 	/* Longs not yet converted */
 	case USE_L:
+		/* Should try and load swapping the halves into
+		   the next two registers */
 		codegen_lr(n);
 		gen_push(n);
 		break;
@@ -251,11 +254,11 @@ static void prep_push(struct node *n)
 	/* Downward we try and assign things to the ideal register */
 	if (s == 1) {
 		printf(";node is %X\n", n->op);
-		if (rused == 0 && can_load_r_simple(n, 0)) {
+		if (rused == 0 && can_load_r8_simple(n, 0)) {
 			printf("; will use A\n");
 			stackop |= USE_A;
 			rused |= R_A;
-		} else if (rused == R_A && can_load_r_simple(n, 0)) {
+		} else if (rused == R_A && can_load_r8_simple(n, 0)) {
 			printf("; will use B\n");
 			stackop |= USE_B;
 			rused |= R_B;
@@ -265,8 +268,12 @@ static void prep_push(struct node *n)
 				*fstk++ = stackop;
 				*rstk++ = rused;
 			}
-			stackop = USE_B;
-			rused = R_B;
+			/* Push ourselves an op to codegen_lr() then push B */
+			*fstk++ = USE_D << 3;
+			*rstk++ = R_B;
+			/* Prepare again */
+			stackop = 0;
+			rused = 0;
 		}
 	} else if (s == 2) {
 		/* A or B or both pushed already ? */
@@ -714,6 +721,7 @@ static unsigned op8r_on_node(struct node *r, char reg, const char *op, unsigned 
 	case T_CONSTANT:
 	case T_NREF:
 	case T_NAME:
+	case T_RDEREF:
 		printf("\t%s%c %s\n", op, reg, addr_form(r, off, 1));
 		break;
 	default:
@@ -1061,6 +1069,22 @@ unsigned can_load_r_simple(struct node *r, unsigned off)
 	case T_NREF:
 	case T_NAME:
 	case T_RREF:
+	case T_RDEREF:
+		return 1;
+	}
+	return 0;
+}
+
+static unsigned can_load_r8_simple(struct node *r, unsigned off)
+{
+	switch(r->op) {
+	case T_ARGUMENT:
+	case T_LOCAL:
+	case T_LREF:
+	case T_CONSTANT:
+	case T_NREF:
+	case T_NAME:
+	/* Can't RREF as no valid tfr u,a or u,b */
 	case T_RDEREF:
 		return 1;
 	}
