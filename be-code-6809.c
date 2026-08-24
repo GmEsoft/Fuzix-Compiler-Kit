@@ -224,7 +224,7 @@ static void pushregs(void)
 static void argstack(struct node *n)
 {
 	unsigned op;
-	unsigned v;
+	unsigned v = n->value;
 	stackop >>= 3;
 	op = stackop & 7;
 	if (op == 0) {
@@ -238,10 +238,16 @@ static void argstack(struct node *n)
 	case 0:
 		error("astk");
 	case USE_A:
-		op8r_on_node(n, 'a', "ld", 0);
+		if (n->op == T_CONSTANT)
+			load_a_const(v);
+		else
+			op8r_on_node(n, 'a', "ld", 0);
 		break;
 	case USE_B:
-		op8_on_node(n, "ld", 0);
+		if (n->op == T_CONSTANT)
+			load_b_const(v);
+		else
+			op8_on_node(n, "ld", 0);
 		break;
 	case USE_D:
 		codegen_lr(n);
@@ -261,14 +267,33 @@ static void argstack(struct node *n)
 	case USE_U:
 		/* Already usable */
 		break;
-	/* Longs not yet converted */
+	/* Longs not yet fully converted */
 	case USE_L:
-		/* Should try and load swapping the halves into
+		/* Should try and generically load swapping the halves into
 		   the next two registers */
+		if (n->op == T_CONSTANT) {
+			load_d_const(n->value >> 16);
+			output("ldx #%u", v);
+			rused = R_A | R_B | R_X;
+			pushregs();
+			break;
+		}
 		codegen_lr(n);
 		gen_push(n);
 		break;
 	}
+}
+
+static void queue_push(void)
+{
+	/* Push any outstanding as the current op */
+	if (stackop) {
+		*fstk++ = stackop;
+		*rstk++ = rused;
+	}
+	/* Prepare again */
+	stackop = 0;
+	rused = 0;
 }
 
 static void prep_push(struct node *n)
@@ -285,16 +310,10 @@ static void prep_push(struct node *n)
 			stackop |= USE_B;
 			rused |= R_B;
 		} else {
-			if(stackop) {
-				*fstk++ = stackop;
-				*rstk++ = rused;
-			}
+			queue_push();
 			/* Push ourselves an op to codegen_lr() then push B */
 			*fstk++ = USE_D << 3;
 			*rstk++ = R_B;
-			/* Prepare again */
-			stackop = 0;
-			rused = 0;
 		}
 	} else if (s == 2) {
 		/* A or B or both pushed already ? */
@@ -319,28 +338,16 @@ static void prep_push(struct node *n)
 				rused |= R_X;
 			}
 		} else {
-			/* Push any outstanding as the current op */
-			if (stackop) {
-				*fstk++ = stackop;
-				*rstk++ = rused;
-			}
+			queue_push();
 			/* Push ourselves an op */
 			*fstk++ = USE_D << 3;
 			*rstk++ = R_A | R_B;
-			/* Prepare for next op */
-			stackop = 0;
-			rused = 0;
 		}
 	} else {
 		/* Will tackle long stuff later */
-		if (stackop) {
-			*fstk++ = stackop;
-			*rstk++ = rused;
-		}
+		queue_push();
 		*fstk++ = USE_L << 3;
 		*rstk++ = 0;	/* handled by gen_push instead */
-		stackop = 0;
-		rused = 0;
 		/* Handled via the gen_push so it will fix sp itself */
 	}
 }
