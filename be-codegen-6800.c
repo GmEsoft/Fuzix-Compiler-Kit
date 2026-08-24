@@ -1230,7 +1230,7 @@ unsigned gen_shortcut(struct node *n)
 			return 1;
 		case T_SHREQ:
 			codegen_lr(r);
-			helper(n, "regshr");
+			helper_s(n, "regshr");
 			return 1;
 		/* These don't trash other regs about */
 		case T_ANDEQ:
@@ -1693,6 +1693,7 @@ unsigned gen_node(struct node *n)
 		return 0;
 	case T_LSTORE:
 	case T_NSTORE:
+//		printf(";nstore %u\n", s);
 		if (write_opd(n, "st", "st", 0)) {
 			invalidate_mem();
 			set_d_node(n);
