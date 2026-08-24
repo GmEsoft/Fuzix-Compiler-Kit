@@ -776,7 +776,7 @@ unsigned do_xptrop(struct node *n, const char *op, unsigned off)
 		if (size == 1 && cpu_has_d) {
 			output("lda %u,x", off);
 			output("mul");
-			output("tstb %u,x", off);
+			output("stb %u,x", off);
 			return 1;
 		}
 		/* Fall through */
