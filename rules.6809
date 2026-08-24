@@ -71,7 +71,21 @@ L%1:
 ;
 L%1:
 
+	beq L%1
+	bra L%2
+L%1:
+=
+	bne L%2
+L%1:
+
+	bne L%1
+	bra L%2
+L%1:
+=
+	beq L%2
+L%1:
 	bra L%1
+
 ;
 L%2:
 ;
@@ -332,7 +346,7 @@ L%3:
 L%1:
 =
 
-	beq L%1
+#	beq L%1
 ;
 L%1:
 =
