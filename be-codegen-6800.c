@@ -548,10 +548,8 @@ unsigned gen_direct(struct node *n)
 					swap_d_y();
 					if (hv & 0xFF)
 						output("andb #%u", BYTE(hv));
-					else {
+					else
 						load_b_const(0);
-						puts("\tclrb");
-					}
 					hv >>= 8;
 					if (hv & 0xFF)
 						output("anda #%u", hv & 0xFF);
