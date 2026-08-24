@@ -64,7 +64,8 @@ unsigned gen_add32(unsigned long v)
 }
 
 /* String variants to push 2-8 bytes. add cc, to get odd. Also stacks
-   with u in the right place for register frames */
+   with u in the right place for register frames. We could abuse dp
+   to get one byte more with a slight complication */
 static char regframe[] = "d,x,y,u";
 
 static void pshframe(unsigned size)
@@ -104,37 +105,50 @@ void gen_frame(unsigned size, unsigned aframe)
 	return;
 }
 
+
 void gen_epilogue(unsigned size, unsigned argsize)
 {
+	unsigned vr = func_flags & F_VOIDRET;
+	unsigned r = func_flags & F_REG(1);
+	char *str;
+	unsigned max = 2;
+	static char rw[] = "d,y,x";
+	static char rb[] = "y,x,a";
+	static char rd[] = "d,y,x,dp";
+	unsigned byteok = vr;
+
+	/* FIXME: it would be better if the front end passed backends
+	   the type of the first arg and return not this flag. Then we
+	   could also use Y reliably for int returns and A for char */
+	if (vr)
+		max = 6;
+
+	if (cpufeat & 2) {
+		/* use-dp */
+		byteok = 1;
+		max++;
+	}
 	if (sp)
 		error("sp");
 
-	/* To handle the 4 case we'd need to know the return type of the
-	   function in full so we could use Y TODO */
-	if (func_flags & F_REG(1)) {
-		if (size == 3) {
-			output("puls x,cc,u,pc");
-			return;
-		}
-		if (size == 2) {
-			output_nf("puls x,u,pc");
-			return;
-		}
+
+	printf(";size %u byteok %u vr %u\n", size, byteok, vr);
+	if (size && size <= max && (byteok | !(size & 1))) {
+		if (size & 1) {
+			if (byteok)
+				str = rd + 7 - size;
+			else
+				str = rb + 5 - size;
+		} else
+			str = rw + 6 - size;
+		output_nf("puls %s%s,pc", str, r ? ",u" : "");
 	} else {
-		if (size == 3) {
-			output("puls x,cc,pc");
-			return;
-		}
-		if (size == 2) {
-			output_nf("puls x,pc");
-			return;
-		}
+		adjust_s(size, vr ? 0 : 1);
+		if (r)
+			output_nf("puls u,pc");
+		else
+			output_nf("rts");
 	}
-	adjust_s(size, (func_flags & F_VOIDRET) ? 0 : 1);
-	if (func_flags & F_REG(1))
-		output_nf("puls u,pc");
-	else
-		output_nf("rts");
 	unreachable = 1;
 }
 

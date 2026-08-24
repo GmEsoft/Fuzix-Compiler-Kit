@@ -37,6 +37,7 @@ processors:
 
 6809 feature options:
 -pic: Generate lbsr, and ,pcr references (incomplete)
+-usedp: The compiler will use dp internally (otherwise never touched)
 
 z80/z180 feature options:
 -mz80-banked: Z80 with banked code
