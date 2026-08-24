@@ -1328,26 +1328,18 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *op)
 	/* If we knoww the upper half matches - eg a byte var that has been expanded then
 	   shortcut it. Need to think about this for signed math. I think we can do signed
 	   math if we use uop in the size 2 upper match case : TODO*/
-	if (s == 1 || (op == uop && a_valid && (v >> 8) == a_val)) {
+	if (s == 1 || (op == uop && a_valid && (v >> 8) == a_val))
 		output("cmpb #%u", BYTE(v));
-		output("jsr %s", op);
-		n->flags |= ISBOOL;
-		invalidate_work();
-		set_a(0);
-		return 1;
-	}
-	if (s == 2) {
-		/* TODO: If we know the value of A (eg from a cast) */
-		if (cpu_has_d) {
-			output("subd #%u", WORD(v));
-			output("jsr %s", op);
-			n->flags |= ISBOOL;
-			invalidate_work();
-			set_a(0);
-			return 1;
-		}
-	}
-	return 0;
+	else if (s == 2 && cpu_has_d)
+		output("subd #%u", WORD(v));
+	else
+		return 0;
+	output("jsr %s", op);
+	n->flags |= ISBOOL;
+	invalidate_work();
+	set_a(0);
+	trackf = stdflags;
+	return 1;
 }
 
 /*
@@ -1538,6 +1530,7 @@ unsigned cmp_op(register struct node *n, const char *uop, const char *op)
 	n->flags |= ISBOOL;
 	invalidate_work();
 	set_a(0);
+	trackf = stdflags;
 	return 1;
 }
 
@@ -1595,13 +1588,16 @@ void gen_jfalse(const char *tail, unsigned n)
 {
 	if (unreachable)
 		return;
-	output("jeq L%d%s", n, tail);
+	if (trackf == NULL)
+		error("jf");
+	output_nf("j%c%c L%d%s", trackf[2], trackf[3], n, tail);
 }
 
 void gen_jtrue(const char *tail, unsigned n)
 {
 	if (unreachable)
 		return;
-	output("jne L%d%s", n, tail);
+	if (trackf == NULL)
+		error("jt");
+	output_nf("j%c%c L%d%s", trackf[0], trackf[1], n, tail);
 }
-

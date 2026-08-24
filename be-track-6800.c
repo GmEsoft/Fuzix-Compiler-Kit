@@ -20,7 +20,8 @@ unsigned a_valid;
 unsigned b_valid;
 unsigned d_valid;
 static struct node d_node;
-static const char *trackf;
+const char *trackf;
+const char stdflags[] = "neeq";	/* bne true, beq false */
 
 void invalidate_all(void)
 {

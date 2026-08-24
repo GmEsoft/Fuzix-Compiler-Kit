@@ -1204,6 +1204,7 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *sop)
 	n->flags |= ISBOOL;
 	set_a(0);
 	invalidate_b();
+	trackf = stdflags;
 	return 1;
 }
 
@@ -1354,6 +1355,7 @@ unsigned cmp_op(struct node *n, const char *uop, const char *op)
 		op16d_on_tos("sub");
 	output("%s %s", jsr_op, op);
 	n->flags |= ISBOOL;
+	trackf = stdflags;
 	invalidate_work();
 	set_a(0);
 	return 1;
@@ -1389,6 +1391,7 @@ void gen_label(const char *tail, unsigned n)
 
 unsigned gen_exit(const char *tail, unsigned n)
 {
+	/* TODO: if unreachable here return 1 ? */
 	output_nf("%s L%d%s", jmp_op, n, tail);
 	unreachable = 1;
 	return 0;
@@ -1406,12 +1409,16 @@ void gen_jfalse(const char *tail, unsigned n)
 {
 	if (unreachable)
 		return;
-	output_nf("beq L%d%s", n, tail);
+	if (trackf == NULL)
+		error("jf");
+	output_nf("b%c%c L%d%s", trackf[2], trackf[3], n, tail);
 }
 
 void gen_jtrue(const char *tail, unsigned n)
 {
 	if (unreachable)
 		return;
-	output_nf("bne L%d%s", n, tail);
+	if (trackf == NULL)
+		error("jt");
+	output_nf("b%c%c L%d%s", trackf[0], trackf[1], n, tail);
 }

@@ -1940,6 +1940,7 @@ unsigned gen_node(struct node *n)
 		if (!(n->right && (n->right->flags & ISBOOL)))
 			helper(n, "bool");
 		set_a(0);
+		trackf = stdflags;
 		return 1;
 	case T_BANG:
 		n->flags |= ISBOOL;
@@ -1950,6 +1951,7 @@ unsigned gen_node(struct node *n)
 			output("eorb #1");
 			invalidate_b();
 		}
+		trackf = stdflags;
 		return 1;
 
 	}

@@ -27,6 +27,8 @@ extern unsigned sp;		/* Stack pointer offset tracking */
 extern unsigned argbase;	/* Argument offset in current function */
 extern unsigned unreachable;	/* Code following an unconditional jump */
 
+extern const char *trackf;
+extern const char stdflags[];
 
 extern unsigned get_size(unsigned t);
 extern unsigned get_stack_size(unsigned t);
