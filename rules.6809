@@ -52,6 +52,52 @@
 =
 	bra L%1
 
+
+	beq L%1
+;
+	bra L%2
+L%1:
+=
+	bne L%2
+;
+L%1:
+
+	bne L%1
+;
+	bra L%2
+L%1:
+=
+	beq L%2
+;
+L%1:
+
+	bra L%1
+;
+L%2:
+;
+L%1:
+=
+L%2:
+L%1:
+
+	beq L%1
+;
+L%2:
+;
+L%1:
+=
+L%2:
+L%1:
+
+	bne L%1
+;
+L%2:
+;
+L%1:
+=
+L%2:
+L%1:
+
 # Pop and transfer (this is ok as D is always invalidated
 	ldd ,s++
 	tfr d,x
@@ -212,3 +258,141 @@
 =
 	leax %1,u
 
+# More bool tidy (repeat it)
+	jsr bool%1
+;
+	beq %2
+	ldd #1
+=
+	jsr bool%1
+;
+	beq %2
+
+	jsr bool%1
+;
+	bne %2
+	clra
+	clrb
+=
+	jsr bool%1
+;
+	bne %2
+
+# More bool tidy (with labels)
+	jsr bool%1
+;
+	beq %2
+;
+L%3:
+	ldd #1
+=
+	jsr bool%1
+;
+	beq %2
+;
+L%3:
+
+	jsr bool%1
+;
+	bne %2
+;
+L%3:
+	clra
+	clrb
+=
+	jsr bool%1
+;
+	bne %2
+;
+L%3:
+
+	jsr bool%1
+;
+	beq %2
+	clra
+	clrb
+=
+	jsr bool%1
+;
+	beq %2
+	clrb
+
+	jsr bool%1
+	bne %2
+	ldd #1
+=
+	jsr bool%1
+;
+	beq %2
+	incb
+
+# Do these after bool tidy 1
+	bne L%1
+;
+L%1:
+=
+
+	beq L%1
+;
+L%1:
+=
+L%1:
+
+	beq L%1
+;
+	bra L%2
+L%1:
+=
+	bne L%2
+;
+L%1:
+
+	bne L%1
+;
+	bra L%2
+L%1:
+=
+	beq L%2
+;
+L%1:
+
+# Bool tidy - in twice until we do the new peepholer
+	jsr bool%1
+;
+	beq %2
+	ldd #1
+=
+	jsr bool%1
+;
+	beq %2
+
+	jsr bool%1
+;
+	bne %2
+	clra
+	clrb
+=
+	jsr bool%1
+;
+	bne %2
+
+	jsr bool%1
+;
+	beq %2
+	clra
+	clrb
+=
+	jsr bool%1
+;
+	beq %2
+	clrb
+
+	jsr bool%1
+;
+	bne %2
+	ldd #1
+=
+	jsr bool%1
+;
+	beq %2
+	incb
