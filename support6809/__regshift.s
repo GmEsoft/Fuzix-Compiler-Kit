@@ -7,6 +7,7 @@
 __reglsl:
 	clra
 	andb	#15
+	beq	nowork
 	exg	d,u
 lsln:
 	lslb
@@ -20,6 +21,7 @@ lsln:
 __regshru:
 	clra
 	andb	#15
+	beq	nowork
 	exg	d,u
 lsrn:
 	lsra
@@ -33,6 +35,7 @@ lsrn:
 __regshr:
 	clra
 	andb	#15
+	beq	nowork
 	exg	d,u
 asrn:
 	asra
@@ -41,4 +44,8 @@ asrn:
 	cmpu	#0
 	bne	asrn
 	tfr	d,u
+	rts
+
+nowork:
+	tfr	u,d		; result may be needed
 	rts
