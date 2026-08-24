@@ -410,3 +410,15 @@ L%1:
 ;
 	beq %2
 	incb
+
+
+# Use of ABX (safe because this code pattern will update X after refs and
+# will have invalidated D
+	ldb %1
+	clra
+	addd %2
+	tfr d,x
+=
+	ldb %1
+	ldx %2
+	abx
