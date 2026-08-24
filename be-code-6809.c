@@ -117,6 +117,7 @@ void gen_epilogue(unsigned size, unsigned argsize)
 	static char rd[] = "d,y,x,dp";
 	unsigned byteok = vr;
 
+
 	/* FIXME: it would be better if the front end passed backends
 	   the type of the first arg and return not this flag. Then we
 	   could also use Y reliably for int returns and A for char */
@@ -131,6 +132,8 @@ void gen_epilogue(unsigned size, unsigned argsize)
 	if (sp)
 		error("sp");
 
+	if (unreachable)
+		return;
 
 	printf(";size %u byteok %u vr %u\n", size, byteok, vr);
 	if (size && size <= max && (byteok | !(size & 1))) {
@@ -1393,7 +1396,7 @@ unsigned gen_push(struct node *n)
 	sp += get_stack_size(n->type);
 	switch(size) {
 	case 1:
-		output_nf("\tpshs b");
+		output_nf("pshs b");
 		return 1;
 	case 2:
 		push_d();
@@ -1401,7 +1404,7 @@ unsigned gen_push(struct node *n)
 	case 4:	/* Have to split them to get the order right */
 		/* Or we could go PDP11 style mixed endian long ? */
 		push_d();
-		output_nf("\tpshs y");
+		output_nf("pshs y");
 		return 1;
 	}
 	return 0;
@@ -1416,10 +1419,15 @@ void gen_label(const char *tail, unsigned n)
 
 unsigned gen_exit(const char *tail, unsigned n)
 {
-	/* TODO: if unreachable here return 1 ? */
-	output_nf("%s L%d%s", jmp_op, n, tail);
+	if (unreachable)
+		return 1;
 	unreachable = 1;
-	return 0;
+	if (frame_len || (func_flags & F_REG(1))) {
+		output_nf("%s L%d%s", jmp_op, n, tail);
+		return 0;
+	}
+	output_nf("rts");
+	return 1;
 }
 
 void gen_jump(const char *tail, unsigned n)
