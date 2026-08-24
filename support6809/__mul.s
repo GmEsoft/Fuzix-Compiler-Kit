@@ -2,6 +2,7 @@
 ;	D = top of stack * D
 ;
 	.export __mul
+	.export __mulx
 	.export __regmul
 
 	.code
@@ -29,8 +30,12 @@ __mul:
 
 __regmul:			; U * D
 	pshs	u
-	lbsr	__mul
+	bsr	__mul
 	; Called func popped u
 	tfr	d,u
 	rts
 
+__mulx:				; X * D
+	pshs	x
+	bsr	__mul
+	rts

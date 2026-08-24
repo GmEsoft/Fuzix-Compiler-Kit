@@ -1271,7 +1271,11 @@ unsigned gen_fast_mul(unsigned s, unsigned n)
 			invalidate_work();
 			return 1;
 		}
-		return 0;
+		output("ldx #%u", n);
+		invalidate_x();
+		output("%s __mulx", jsr_op);
+		invalidate_work();
+		return 1;
 	} else {
 		unsigned c = 0;
 		/* Power of 2 */
