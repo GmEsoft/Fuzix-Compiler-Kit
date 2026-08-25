@@ -12,6 +12,34 @@ static unsigned load_r_with(char reg, struct node *r, unsigned off);
 
 unsigned label;		/* Used to hand out local labels in the form X%u */
 
+/* Management of function call stacks. This gets a bit hairy as we want
+   to optimize for the multi-register push */
+
+#define R_A		1
+#define R_B		2
+#define R_X		4
+#define R_Y		8
+#define R_U		16
+
+#define USE_A		1
+#define USE_B		2
+#define USE_D		3
+#define USE_X		4
+#define USE_Y		5
+#define USE_U		6
+#define USE_L		7
+
+#define NCALL		16		/* For now TODO */
+
+static uint8_t rstk_s[NCALL];		/* Register mask for each push */
+static uint32_t fstk_s[NCALL];		/* Operation list for each push */
+static uint8_t *rstk = rstk_s;
+static uint32_t *fstk = fstk_s;
+static uint8_t rused;
+static uint32_t stackop;
+static uint8_t astk_s[NCALL];		/* Size of arg we didn't push */
+static uint8_t *astk = astk_s;
+
 void push_d(void)
 {
 	output_nf("pshs d");
@@ -33,6 +61,13 @@ void tfr_d_u(void)
 {
 	output_nf("tfr d,u");
 	/* Don't track U yet but this will make D a copy of the regvar */
+}
+
+void adjust_s(int n, unsigned unused)
+{
+	if (n)
+		output_nf("leas %d,s", n);
+	return;
 }
 
 
@@ -83,12 +118,31 @@ void gen_prologue(const char *name)
 }
 
 /* Generate the stack frame */
-void gen_frame(unsigned size, unsigned aframe)
+void gen_frame(unsigned size, unsigned aframe, unsigned s1)
 {
 	argbase = ARGBASE;
 	frame_len = size;
 
+	if (s1 != VOID && !(func_flags & F_VARARG))
+		s1 = get_size(s1);
+	else
+		s1 = 0;
+	func_a1size = s1;
+
 	if (func_flags & F_REG(1)) {
+		/* reg with long argument, fold together */
+		if (s1) {
+			if (s1 == 1)
+				output_nf("pshs u,b");
+			else {
+				output_nf("pshs u,d");
+				if (s1 == 4)
+					output_nf("pshs y");
+			}
+			adjust_s(-size, 0);
+			argbase += 2;
+			return;
+		}
 		if (size <= 6)
 			pshframe(size + 2);
 		else {
@@ -97,6 +151,19 @@ void gen_frame(unsigned size, unsigned aframe)
 		}
 		argbase += 2;
 		return;
+	}
+	/* We can do better here in some cases.
+	   TODO:
+	   fall through if s1 == 4 && last push would be y from pshframe
+	   of size + 2 */
+	if (s1) {
+		if (s1 == 1)
+			output_nf("pshs b");
+		else {
+			output_nf("pshs d");
+			if (s1 == 4)
+				output_nf("pshs y");
+		}
 	}
 	if (size > 2 && size <= 8)
 		pshframe(size);
@@ -117,6 +184,8 @@ void gen_epilogue(unsigned size, unsigned argsize)
 	static char rd[] = "d,y,x,dp";
 	unsigned byteok = vr;
 
+	/* Clean up arguments we pushed ourselves */
+	size += func_a1size;
 
 	/* FIXME: it would be better if the front end passed backends
 	   the type of the first arg and return not this flag. Then we
@@ -146,7 +215,7 @@ void gen_epilogue(unsigned size, unsigned argsize)
 			str = rw + 6 - size;
 		output_nf("puls %s%s,pc", str, r ? ",u" : "");
 	} else {
-		adjust_s(size, vr ? 0 : 1);
+		adjust_s(size, 0);
 		if (r)
 			output_nf("puls u,pc");
 		else
@@ -154,6 +223,16 @@ void gen_epilogue(unsigned size, unsigned argsize)
 	}
 	unreachable = 1;
 }
+
+/* This will match each call exactly 1 to 1 */
+void gen_cleanup(struct node *n)
+{
+	uint16_t v = n->right->value;
+	v -= *--astk;
+	sp -= v;
+	adjust_s(v, 0);
+}
+
 
 /* We handle function arguments specially as we both push them to a different
    stack and optimize them. The tree looks like this
@@ -167,28 +246,6 @@ void gen_epilogue(unsigned size, unsigned argsize)
 	    ARG
  */
 
-#define R_A		1
-#define R_B		2
-#define R_X		4
-#define R_Y		8
-#define R_U		16
-
-#define USE_A		1
-#define USE_B		2
-#define USE_D		3
-#define USE_X		4
-#define USE_Y		5
-#define USE_U		6
-#define USE_L		7
-
-#define NCALL		16		/* For now TODO */
-
-static uint8_t rstk_s[NCALL];		/* Register mask for each push */
-static uint32_t fstk_s[NCALL];		/* Operation list for each push */
-static uint8_t *rstk = rstk_s;
-static uint32_t *fstk = fstk_s;
-static uint8_t rused;
-static uint32_t stackop;
 
 static void pushregs(void)
 {
@@ -357,6 +414,7 @@ static void prep_push(struct node *n)
 
 static void do_fcall(struct node *n)
 {
+	/* No further arguments */
 	if (n == NULL)
 		return;
 	if (n->op == T_ARGCOMMA) {
@@ -373,13 +431,42 @@ static void do_fcall(struct node *n)
 	/* Final node done */
 }
 
-void gen_fcall(struct node *n)
+static void do_topcall(struct node *n)
 {
+	unsigned s;
+	/* How to tell if varargs ? */
+	/* TODO */
+	/* Multiple arguments */
+	if (n->op == T_ARGCOMMA) {
+		do_fcall(n->left);
+		n = n->right;	/* Last arg */
+	}
+	pushregs();
+	s = get_size(n->type);
+	*astk++ = s;
+	/* and just deal with the last one as a straight generate */
+	codegen_lr(n);
+	/* Argument now in D - will need changes to indirect function calls */
+}
+
+void gen_fcall(struct node *n, unsigned vararg)
+{
+	/* No arguments */
+	if (n == NULL) {
+		*astk++ = 0;	/* Nothing to do */
+		return;
+	}
 	*fstk++ = stackop;
 	*rstk++ = rused;
 	stackop = 0;
 	rused = 0;
-	do_fcall(n);
+	/* Varargs we push all arguments */
+	if (vararg) {
+		do_fcall(n);
+		/* No adjustment needed */
+		*astk++ = 0;
+	} else
+		do_topcall(n);
 	pushregs();
 	rused = *--rstk;
 	stackop = *--fstk;
@@ -556,6 +643,8 @@ void move_d_s(void)
 void swap_d_y(void)
 {
 	output_nf("exg d,y");
+	/* Until tracking improves */
+	invalidate_work();
 }
 
 void swap_d_x(void)
@@ -589,13 +678,6 @@ void pop_x(void)
  *	There are multiple strategies depnding on chip features
  *	available.
  */
-void adjust_s(int n, unsigned save_d)
-{
-	if (n)
-		output_nf("leas %d,s", n);
-	return;
-}
-
 void op8_on_ptr(const char *op, unsigned off)
 {
 	output("%sb %u,x", op, off);
@@ -1422,7 +1504,7 @@ unsigned gen_exit(const char *tail, unsigned n)
 	if (unreachable)
 		return 1;
 	unreachable = 1;
-	if (frame_len || (func_flags & F_REG(1))) {
+	if (frame_len + func_a1size || (func_flags & F_REG(1))) {
 		output_nf("%s L%d%s", jmp_op, n, tail);
 		return 0;
 	}

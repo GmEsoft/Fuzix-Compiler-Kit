@@ -422,3 +422,30 @@ L%1:
 	ldb %1
 	ldx %2
 	abx
+
+# Stack reload avoidance on entry
+# FIXME: need to watch flags here - this wants doing by tracking
+# and setting the D node on entry when correct
+	pshs d
+	ldd 0,s
+=
+	pshs d
+
+	pshs u,d
+	ldd 0,s
+=
+	pshs u,d
+
+	pshs d
+	leas -%1,s
+	ldd %1,s
+=
+	pshs d
+	leas -%1,s
+
+	pshs u,d
+	leas -%1,s
+	ldd %1,s
+=
+	pshs u,d
+	leas -%1,s

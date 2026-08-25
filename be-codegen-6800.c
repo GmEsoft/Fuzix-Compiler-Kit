@@ -162,6 +162,11 @@ struct node *gen_rewrite_node(struct node *n)
 	unsigned nt = n->type;
 	unsigned off;
 
+	/* Adjust any argument pushed by the called function to
+	   be the other side of the push of pc and maybe of u */
+	if (op == T_ARGUMENT && n->value < func_a1size)
+		n->value -= argbase;
+
 	/* Eliminate casts for sign, pointer conversion or same */
 	if (op == T_CAST && cast_fold_safe(r->op)) {
 		if (free_cast(nt, r->type)) {
@@ -173,9 +178,11 @@ struct node *gen_rewrite_node(struct node *n)
 	/* Rewrite function call of a name into a new node so we can
 	   turn it easily into call xyz */
 	if (op == T_FUNCCALL && r->op == T_NAME && PTR(r->type) == 1) {
+		printf(";funccall %u %u\n", n->snum, WORD(n->value));
 		n->op = T_CALLNAME;
+		/* Save old vararg flag, func offsets are always 0 */
+		n->value = n->snum;
 		n->snum = r->snum;
-		n->value = r->value;
 		free_node(r);
 		n->right = NULL;
 	}
@@ -394,7 +401,9 @@ struct node *gen_rewrite_node(struct node *n)
 static void negate_d(void)
 {
 	unsigned v;
-	puts("\tnega\n\tnegb\n\tsbca #0\n");
+	output("nega");
+	output("negb");
+	output("sbca #0");
 	if (a_valid && b_valid) {
 		v = (a_val << 8) + b_val;
 		v = WORD(-v);
@@ -423,9 +432,7 @@ unsigned gen_direct(struct node *n)
 	   type of the function return so don't use that for the cleanup value
 	   in n->right */
 	case T_CLEANUP:
-		sp -= r->value;
-		if (cpu_has_d || n->snum) /* Varargs */
-			adjust_s(r->value, (func_flags & F_VOIDRET) ? 0 : 1);
+		gen_cleanup(n);
 		return 1;
 	case T_EQ:
 	case T_EQPLUS:
@@ -1153,14 +1160,16 @@ unsigned gen_shortcut(struct node *n)
 
 	if (n->op == T_FUNCCALL) {
 		/* Generate and stack all the arguments */
-		gen_fcall(l);
+		gen_fcall(l, n->snum);
 		/* Generate the address of the function */
 		if (can_load_r_with(r, 0))
 			v = load_x_with(r, 0);
 		else {
+			push_d();
 			codegen_lr(r);
 			v = 0;
 			make_x_d();
+			pop_d();
 		}
 		output("jsr %d,x", v);
 		invalidate_all();
@@ -1168,8 +1177,8 @@ unsigned gen_shortcut(struct node *n)
 	}
 
 	if (n->op == T_CALLNAME) {
-		gen_fcall(l);
-		output("%s %s+%u", jsr_op, namestr(n->snum), WORD(n->value));
+		gen_fcall(l, n->value);
+		output("%s %s", jsr_op, namestr(n->snum));
 		invalidate_all();
 		return 1;
 	}

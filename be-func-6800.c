@@ -32,6 +32,7 @@ unsigned frame_len;		/* Number of bytes of stack frame */
 unsigned argbase;		/* Argument offset in current function */
 unsigned sp;			/* Stack pointer offset tracking */
 unsigned unreachable;		/* Code following an unconditional jump */
+unsigned func_a1size;		/* Number of argument bytes pushed by callee */
 
 /* Export the C symbol */
 void gen_export(const char *name)
@@ -104,12 +105,16 @@ static unsigned c_style(struct node *np)
 	return 0;
 }
 
+/* FIXME: needs adapting to the changed calling scheme, or better yet
+   rewriting the helpers in asm anyway */
+/* This works for all the wrong reasons for the moment as the arg is always
+   32bit */
 void gen_helpcall(struct node *n)
 {
 	/* Check both N and right because we handle casts to/from float in
 	   C call format */
-	if (c_style(n))
-		gen_push(n->right);
+/*	if (c_style(n))
+		gen_push(n->right); */
 	invalidate_all();
 	printf("\t%s __", jsr_op);
 }
@@ -128,7 +133,7 @@ void gen_helpclean(struct node *n)
 			   the helper did the work, adjust it back as we didn't */
 			sp += s;
 		}
-		s += get_size(n->right->type);
+/*		s += get_size(n->right->type); */
 		/* No helper uses varargs */
 		sp -= s;
 		/* 6800 expects called code to clean up */

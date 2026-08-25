@@ -138,7 +138,7 @@ void gen_prologue(const char *name)
 }
 
 /* Generate the stack frame */
-void gen_frame(unsigned size, unsigned aframe)
+void gen_frame(unsigned size, unsigned aframe, unsigned t1)
 {
 	argbase = ARGBASE;
 	frame_len = size;
@@ -161,6 +161,14 @@ void gen_epilogue(unsigned size, unsigned argsize)
 		output_nf(".word %u\n", argsize);
 	}
 	unreachable = 1;
+}
+
+void gen_cleanup(struct node *n)
+{
+	uint16_t v = n->right->value;
+	sp -= v;
+	if (cpu_has_d || n->snum) /* Varargs */
+		adjust_s(v, (func_flags & F_VOIDRET) ? 0 : 1);
 }
 
 /* We handle function arguments specially as we both push them to a different
@@ -221,13 +229,13 @@ static void argstack(struct node *n)
 	gen_push(n);
 }
 
-void gen_fcall(struct node *n)
+void do_fcall(struct node *n)
 {
 	if (n == NULL)
 		return;
 	if (n->op == T_ARGCOMMA) {
 		/* Recurse down arguments and stack then on the way up */
-		gen_fcall(n->left);
+		do_fcall(n->left);
 		argstack(n->right);
 	} else {
 		argstack(n);
@@ -235,6 +243,10 @@ void gen_fcall(struct node *n)
 	/* Final node done */
 }
 
+void gen_fcall(struct node *n, unsigned vararg)
+{
+	do_fcall(n);
+}
 
 static unsigned make_with_op(char r, register uint8_t ev, register uint8_t tv)
 {
@@ -431,7 +443,9 @@ void move_d_s(void)
 
 void swap_d_y(void)
 {
+	/* Until tracking improves */
 	output_nf("xgdy");
+	invalidate_work();
 }
 
 void swap_d_x(void)

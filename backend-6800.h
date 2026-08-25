@@ -26,6 +26,7 @@ extern unsigned frame_len;	/* Number of bytes of stack frame */
 extern unsigned sp;		/* Stack pointer offset tracking */
 extern unsigned argbase;	/* Argument offset in current function */
 extern unsigned unreachable;	/* Code following an unconditional jump */
+extern unsigned func_a1size;	/* Number of argument bytes pushed by callee */
 
 extern const char *trackf;
 extern const char stdflags[];
@@ -95,6 +96,7 @@ extern void swap_d_x(void);
 extern void make_x_d(void);
 extern void make_d_x(void);
 extern void pop_x(void);
+extern void gen_cleanup(struct node *n);
 extern void adjust_s(int n, unsigned save_d);
 extern unsigned can_load_d_nox(struct node *n, unsigned off);
 extern void op8_on_ptr(const char *op, unsigned off);
@@ -130,7 +132,7 @@ extern unsigned gen_fast_div(unsigned n, unsigned s, unsigned u);
 extern void op_on_ptr(struct node *n, const char *op, unsigned off);
 extern void opd_on_ptr(struct node *n, const char *op, const char *op2, unsigned off);
 extern unsigned cmp_op(struct node *n, const char *up, const char *op);
-extern void gen_fcall(struct node *n);
+extern void gen_fcall(struct node *n, unsigned vararg);
 extern void output(const char *, ...);
 extern void outlabel(const char *, ...);
 extern void output_nf(const char *, ...);
