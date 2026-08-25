@@ -424,6 +424,7 @@ static unsigned compile_expression(void)
 static unsigned func_ret;
 static unsigned frame_len;
 static unsigned argframe_len;
+static unsigned argframe_type1;
 static unsigned func_ret_used;
 unsigned func_flags;
 
@@ -473,10 +474,11 @@ static void process_header(void)
 	case H_FRAME:
 		frame_len = h.h_name;
 		func_flags = h.h_data;
-		gen_frame(h.h_name, argframe_len);
+		gen_frame(h.h_name, argframe_len, argframe_type1);
 		break;
 	case H_ARGFRAME:
 		argframe_len = h.h_name;
+		argframe_type1 = h.h_data;
 		break;
 	case H_FUNCTION | H_FOOTER:
 		if (func_ret_used)

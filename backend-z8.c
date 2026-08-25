@@ -1825,7 +1825,7 @@ void gen_prologue(const char *name)
 
 /* Generate the stack frame */
 /* TODO: defer this to statements so we can ld/push initializers */
-void gen_frame(unsigned size, unsigned aframe)
+void gen_frame(unsigned size, unsigned aframe, unsigned t1)
 {
 	unsigned r;
 	frame_len = size;

@@ -1330,7 +1330,7 @@ void gen_prologue(const char *name)
 }
 
 /* Generate the stack frame */
-void gen_frame(unsigned size, unsigned aframe)
+void gen_frame(unsigned size, unsigned aframe, unsigned t1)
 {
 	frame_len = size;
 	if (size == 0)

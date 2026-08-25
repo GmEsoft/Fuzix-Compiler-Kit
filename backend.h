@@ -25,7 +25,7 @@ extern struct node *gen_rewrite(struct node *n);
 extern void gen_segment(unsigned segment);
 extern void gen_export(const char *name);
 extern void gen_prologue(const char *name);
-extern void gen_frame(unsigned size, unsigned asize);
+extern void gen_frame(unsigned size, unsigned asize, unsigned type1);
 extern void gen_epilogue(unsigned size, unsigned argsize);
 extern unsigned gen_exit(const char *t, unsigned n);
 extern void gen_label(const char *t, unsigned n);

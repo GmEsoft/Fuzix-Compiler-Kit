@@ -750,7 +750,7 @@ void gen_prologue(const char *name)
 }
 
 /* Generate the stack frame */
-void gen_frame(unsigned size, unsigned aframe)
+void gen_frame(unsigned size, unsigned aframe, unsigned t1)
 {
 	/* Annoyingly we can't use autoindex on SP */
 	frame_len = size;

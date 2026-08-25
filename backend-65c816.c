@@ -1187,7 +1187,7 @@ void gen_prologue(const char *name)
    it would be nice to know the max bytes pushed in function call so we can
    prealloc this in one go. The backend doesn't have the info but the front
    end could collect it and pass it in a way we can use: TODO */
-void gen_frame(unsigned size, unsigned argsize)
+void gen_frame(unsigned size, unsigned argsize, unsigned t1)
 {
 	frame_len = size;
 	arg_len = argsize;
