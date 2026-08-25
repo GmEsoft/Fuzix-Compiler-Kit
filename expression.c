@@ -170,7 +170,9 @@ struct node *function_call(register struct node *n)
 		missedarg(narg, argp[0]);
 	}
 	/* Always emit this - some targets have other uses for knowing
-	   the boundary of a function call return */
+	   the boundary of a function call return or if it is varargs
+	   on the call and return side */
+	n->snum = va;
 	n->type = type;
 	n = tree(T_CLEANUP, n, make_constant(argsize, UINT));
 	n->snum = va;

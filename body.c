@@ -378,6 +378,7 @@ void function_body(unsigned st, unsigned name, unsigned type)
 	unsigned long hrw;
 	register unsigned *p;
 	register unsigned n;
+	unsigned type1 = 0;
 
 	/* We are using both the ones allocated for locals and those registers */
 	func_flags = arg_flags & F_REGMASK;
@@ -388,8 +389,13 @@ void function_body(unsigned st, unsigned name, unsigned type)
 		func_flags |= F_VOIDRET;
 	p = func_args(type);
 	n = *p++;
-	if (n == 1 && *p == VOID)
+	if (n == 1 && *p == VOID) {
+		/* TODO: we should be able to retire this flag */
 		func_flags |= F_VOID;
+	}
+	/* Remember type of first argument */
+	else
+		type1 = *p;
 	while(n--) {
 		if (*p++ == ELLIPSIS) {
 			func_flags |= F_VARARG;
@@ -401,7 +407,7 @@ void function_body(unsigned st, unsigned name, unsigned type)
 		error("invalid storage class");
 	func_tag = next_tag++;
 	header(H_FUNCTION, func_tag, name);
-	header(H_ARGFRAME, func_argframe, 0);
+	header(H_ARGFRAME, func_argframe, type1);
 	hrw = mark_header();
 	header(H_FRAME, 0, 0);
 
