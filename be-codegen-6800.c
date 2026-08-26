@@ -178,7 +178,6 @@ struct node *gen_rewrite_node(struct node *n)
 	/* Rewrite function call of a name into a new node so we can
 	   turn it easily into call xyz */
 	if (op == T_FUNCCALL && r->op == T_NAME && PTR(r->type) == 1) {
-		printf(";funccall %u %u\n", n->snum, WORD(n->value));
 		n->op = T_CALLNAME;
 		/* Save old vararg flag, func offsets are always 0 */
 		n->value = n->snum;
@@ -191,8 +190,8 @@ struct node *gen_rewrite_node(struct node *n)
 		(l->op == T_LOCAL || l->op == T_NAME || l->op == T_ARGUMENT)) {
 		/* We don't care if the right offset is 16bit or 32 as we've
 		   got 16bit pointers */
-		printf(";merge right %x %lu+%lu\n",
-			op, l->value, r->value);
+		/* printf(";merge right %x %lu+%lu\n",
+			op, l->value, r->value); */
 		l->value += r->value;
 		free_node(r);
 		free_node(n);
@@ -1165,11 +1164,13 @@ unsigned gen_shortcut(struct node *n)
 		if (can_load_r_with(r, 0))
 			v = load_x_with(r, 0);
 		else {
+			sp += 2;
 			push_d();
 			codegen_lr(r);
 			v = 0;
 			make_x_d();
 			pop_d();
+			sp -= 2;
 		}
 		output("jsr %d,x", v);
 		invalidate_all();
