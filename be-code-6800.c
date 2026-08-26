@@ -1615,3 +1615,61 @@ void gen_jtrue(const char *tail, unsigned n)
 		error("jt");
 	output_nf("j%c%c L%d%s", trackf[0], trackf[1], n, tail);
 }
+
+/* True if the helper is to be called C style */
+static unsigned c_style(struct node *np)
+{
+	register struct node *n = np;
+	/* Assignment is done asm style. No other float used asm helpers
+	  should show up as helpcalls but if they do they need to be
+	  listed here */
+	if (n->op == T_EQ || n->op == T_DEREF)
+		return 0;
+	/* Float ops otherwise are C style */
+	if (n->type == FLOAT)
+		return 1;
+	n = n->right;
+	if (n && n->type == FLOAT)
+		return 1;
+	return 0;
+}
+
+/* FIXME: needs adapting to the changed calling scheme, or better yet
+   rewriting the helpers in asm anyway */
+/* This works for all the wrong reasons for the moment as the arg is always
+   32bit */
+void gen_helpcall(struct node *n)
+{
+	/* Check both N and right because we handle casts to/from float in
+	   C call format */
+	if (c_style(n))
+		gen_push(n->right);
+	invalidate_all();
+	printf("\t%s __", jsr_op);
+}
+
+void gen_helptail(struct node *n)
+{
+}
+
+void gen_helpclean(struct node *n)
+{
+	if (c_style(n)) {
+		unsigned s = 0;
+		if (n->left) {
+			s += get_size(n->left->type);
+			/* gen_node already accounted for removing this thinking
+			   the helper did the work, adjust it back as we didn't */
+			sp += s;
+		}
+		s += get_size(n->right->type);
+		/* No helper uses varargs */
+		sp -= s;
+		/* 6800 expects called code to clean up */
+		if (cpu != 6800)
+			adjust_s(s, 1);
+		/* C style ops that are ISBOOL didn't set the bool flags */
+		if (n->flags & ISBOOL)
+			output("tstb");
+	}
+}

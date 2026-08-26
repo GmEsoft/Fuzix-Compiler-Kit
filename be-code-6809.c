@@ -204,7 +204,7 @@ void gen_epilogue(unsigned size, unsigned argsize)
 	if (unreachable)
 		return;
 
-	printf(";size %u byteok %u vr %u\n", size, byteok, vr);
+/*	printf(";size %u byteok %u vr %u\n", size, byteok, vr); */
 	if (size && size <= max && (byteok | !(size & 1))) {
 		if (size & 1) {
 			if (byteok)
@@ -1536,4 +1536,46 @@ void gen_jtrue(const char *tail, unsigned n)
 	if (trackf == NULL)
 		error("jt");
 	output_nf("b%c%c L%d%s", trackf[0], trackf[1], n, tail);
+}
+
+/* True if the helper is to be called C style */
+static unsigned c_style(struct node *np)
+{
+	register struct node *n = np;
+	/* Assignment is done asm style. No other float used asm helpers
+	  should show up as helpcalls but if they do they need to be
+	  listed here */
+	if (n->op == T_EQ || n->op == T_DEREF)
+		return 0;
+	/* Float ops otherwise are C style */
+	if (n->type == FLOAT)
+		return 1;
+	n = n->right;
+	if (n && n->type == FLOAT)
+		return 1;
+	return 0;
+}
+
+/* our C call and helper ABI are the same so C helpers need no changes here */
+void gen_helpcall(struct node *n)
+{
+	invalidate_all();
+	printf("\t%s __", jsr_op);
+}
+
+void gen_helptail(struct node *n)
+{
+}
+
+/* On the return path however the helpers did their own cleanup but C did
+   not. In addition the C helper won't have set flags properly if boolean */
+void gen_helpclean(struct node *n)
+{
+	if (c_style(n)) {
+		if (n->left)
+			adjust_s(get_size(n->left->type), 1);
+		/* C style ops that are ISBOOL didn't set the bool flags */
+		if (n->flags & ISBOOL)
+			output("tstb");
+	}
 }
