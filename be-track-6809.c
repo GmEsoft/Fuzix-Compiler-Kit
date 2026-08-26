@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <ctype.h>
 #include "compiler.h"
 #include "backend.h"
 #include "backend-6800.h"
@@ -173,11 +174,42 @@ void output(const char *p, ...)
 {
 	va_list v;
 	va_start(v, p);
+	trackf = NULL;		/* Flags no longer known */
+	while(isupper(*p)) {
+		switch(*p) {
+		case 'A':
+			invalidate_a();
+			break;
+		case 'B':
+			invalidate_b();
+			break;
+		case 'D':
+			invalidate_work();
+			break;
+		case 'M':
+			invalidate_mem();
+			break;
+		case 'U':
+			/* Not tracked yet */
+			break;
+		case 'X':
+			invalidate_x();
+			break;
+		case 'Y':
+			/* Y isn't tracked yet */
+			break;
+		case 'Z':
+			/* Not present on 6800 */
+			break;
+		default:
+			error("ot");
+		}
+		p++;
+	}
 	putchar('\t');
 	vprintf(p, v);
 	putchar('\n');
 	va_end(v);
-	trackf = NULL;		/* Flags no longer known */
 }
 
 void outlabel(const char *p, ...)
