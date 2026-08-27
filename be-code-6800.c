@@ -4,11 +4,236 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include "compiler.h"
 #include "backend.h"
 #include "backend-6800.h"
 
 unsigned label;		/* Used to hand out local labels of the form X%u */
+
+/*
+ *	Start with some simple X versus S tracking
+ *	to clean up the local accesses
+ */
+
+static uint16_t x_fpoff;
+static unsigned x_fprel;
+uint8_t a_val;
+uint8_t b_val;
+unsigned a_valid;
+unsigned b_valid;
+unsigned d_valid;
+static struct node d_node;
+const char *trackf;
+const char stdflags[] = "neeq";	/* bne true, beq false */
+
+void invalidate_all(void)
+{
+	x_fprel = 0;
+	a_valid = 0;
+	b_valid = 0;
+	d_valid = 0;
+}
+
+void invalidate_x(void)
+{
+	x_fprel = 0;
+}
+
+/* If we lose tracking on A or B then defacto we lost tracking on D */
+void invalidate_a(void)
+{
+	a_valid = 0;
+	d_valid = 0;
+}
+
+void invalidate_b(void)
+{
+	b_valid = 0;
+	d_valid = 0;
+}
+
+void invalidate_d(void)
+{
+	d_valid = 0;
+}
+
+void invalidate_work(void)
+{
+	a_valid = 0;
+	b_valid = 0;
+	d_valid = 0;
+}
+
+void invalidate_mem(void)
+{
+	/* If memory changes it might be an alias to the value cached in AB */
+	switch(d_node.op) {
+	case T_LREF:
+	case T_NREF:
+		d_valid = 0;
+	}
+}
+
+void set_d_node(struct node *n)
+{
+	memcpy(&d_node, n, sizeof(struct node));
+	switch(d_node.op) {
+	case T_LSTORE:
+		d_node.op = T_LREF;
+		break;
+	case T_NSTORE:
+		d_node.op = T_NREF;
+		break;
+	case T_RSTORE:
+		d_node.op = T_RREF;
+		break;
+	case T_NREF:
+	case T_LREF:
+	case T_NAME:
+	case T_LOCAL:
+	case T_ARGUMENT:
+		break;
+	default:
+		d_valid = 0;
+		return;
+	}
+	d_valid = 1;
+}
+
+/* D holds the content pointed to by n */
+void set_d_node_ptr(struct node *n)
+{
+	memcpy(&d_node, n, sizeof(struct node));
+	switch(d_node.op) {
+	case T_NAME:
+		d_node.op = T_NREF;
+		break;
+	case T_ARGUMENT:
+		d_node.value += argbase + frame_len;
+		/* Fall through */
+	case T_LOCAL:
+		d_node.op = T_LREF;
+		break;
+	default:
+		d_valid = 0;
+		return;
+	}
+	d_valid = 1;
+}
+
+/* Do we need to check fields by type or will the default filling
+   be sufficient ? */
+unsigned d_holds_node(struct node *n)
+{
+	if (d_valid == 0)
+		return 0;
+	if (d_node.op != n->op)
+		return 0;
+	if (d_node.snum != n->snum)
+		return 0;
+	if (d_node.value != n->value)
+		return 0;
+	return 1;
+}
+
+void modify_a(uint8_t val)
+{
+	a_val = val;
+	d_valid = 0;
+}
+
+void modify_b(uint8_t val)
+{
+	b_val = val;
+	d_valid = 0;
+}
+
+void set_a(uint8_t val)
+{
+	a_val = val;
+	d_valid = 0;
+	a_valid = 1;
+}
+
+void set_b(uint8_t val)
+{
+	b_val = val;
+	b_valid = 1;
+	d_valid = 0;
+}
+
+static const char *outflags(register const char *p)
+{
+	while(isupper(*p)) {
+		switch(*p) {
+		case 'A':
+			invalidate_a();
+			break;
+		case 'B':
+			invalidate_b();
+			break;
+		case 'D':
+			invalidate_work();
+			break;
+		case 'M':
+			invalidate_mem();
+			break;
+		case 'X':
+			invalidate_x();
+			break;
+		case 'Y':
+			/* Y isn't tracked yet */
+			break;
+		case 'Z':
+			trackf = stdflags;
+		case 'U':
+			/* Not present on 6800 */
+		case ' ':
+			/* For clarity */
+			break;
+		default:
+			error("ot");
+		}
+		p++;
+	}
+	return p;
+}
+
+void output_nf(const char *p, ...)
+{
+	va_list v;
+	va_start(v, p);
+	p = outflags(p);
+	putchar('\t');
+	vprintf(p, v);
+	putchar('\n');
+	va_end(v);
+}
+
+void output(const char *p, ...)
+{
+	va_list v;
+	va_start(v, p);
+	trackf = NULL;		/* Flags no longer known */
+	p = outflags(p);
+	putchar('\t');
+	vprintf(p, v);
+	putchar('\n');
+	va_end(v);
+}
+
+void outlabel(const char *p, ...)
+{
+	va_list v;
+	va_start(v, p);
+	p = outflags(p);
+	vprintf(p, v);
+	putchar(':');
+	putchar('\n');
+	va_end(v);
+}
+
 
 void push_d(void)
 {
@@ -18,18 +243,18 @@ void push_d(void)
 
 void pop_d(void)
 {
-	output_nf("pula");
-	output_nf("pulb");
+	output_nf("Apula");
+	output_nf("Bpulb");
 }
 
 /* FIXME: Generic versions of these made visible and also clear ? */
 static void load_d_hireg(void)
 {
 	if (cpu_has_d)
-		output("ldd @hireg");
+		output("Dldd @hireg");
 	else {
-		output("ldaa @hireg");
-		output("ldab @hireg+1");
+		output("Aldaa @hireg");
+		output("Bldab @hireg+1");
 	}
 }
 
@@ -82,15 +307,17 @@ unsigned gen_add32(unsigned long v)
 		if (l) {
 			add_d_const(l);
 			swap_d_y();
-			output("adcb #%u\n", BYTE(h));
-			output("adca #%u\n", BYTE(h >> 8));
+			output("Badcb #%u\n", BYTE(h));
+			output("Aadca #%u\n", BYTE(h >> 8));
 			swap_d_y();
 		} else {
 			swap_d_y();
 			if (BYTE(h))
-				output("addd #%u", h);
-			else
+				add_d_const(h);
+			else {
 				output("adda #%u", BYTE(h >> 8));
+				modify_a(a_val + BYTE(h >> 8));
+			}
 			swap_d_y();
 		}
 		return 1;
@@ -422,10 +649,10 @@ void move_s_d(void)
 {
 	output_nf("sts @tmp");
 	if (cpu_has_d)
-		output("ldd @tmp");
+		output("Dldd @tmp");
 	else {
-		output("ldaa @tmp");
-		output("ldab @tmp+1");
+		output("Aldaa @tmp");
+		output("Bldab @tmp+1");
 	}
 	invalidate_work();
 }
@@ -441,19 +668,29 @@ void move_d_s(void)
 	output_nf("lds @tmp");
 }
 
+void load_y_const(uint16_t v)
+{
+	/* Until we track properly */
+	output("Yldy #%u", v);
+}
+
+/* Shouldn't get called except on 6809 for now but we will need to move
+   the whole 6800 X modifying mess into here later */
+void add_x_const(uint16_t)
+{
+	error("axc");
+}
+
 void swap_d_y(void)
 {
-	/* Until tracking improves */
-	output_nf("xgdy");
-	invalidate_work();
+	/* FIXME: until tracking improves */
+	output_nf("DYxgdy");
 }
 
 void swap_d_x(void)
 {
-	/* Should really track on the exchange later */
-	output_nf("xgdx");
-	invalidate_work();
-	invalidate_x();
+	/* FIXME: Should really track on the exchange later */
+	output_nf("DXxgdx");
 }
 
 /* Get D into X (may trash D) */
@@ -469,10 +706,8 @@ void make_x_d(void)
 			output("staa @tmp");
 			output("stab @tmp+1");
 		}
-		output("ldx @tmp");
+		output("Xldx @tmp");
 	}
-	/* TODO: d -> x see if we know d type */
-	invalidate_x();
 }
 
 /* Get X into D (may trash X) */
@@ -483,14 +718,12 @@ void make_d_x(void)
 	else {
 		output("stx @tmp");
 		if (cpu_has_d)
-			output("ldd @tmp");
+			output("Dldd @tmp");
 		else {
-			output("ldaa @tmp");
-			output("ldab @tmp+1");
+			output("Aldaa @tmp");
+			output("Bldab @tmp+1");
 		}
 	}
-	/* TODO: x->d  see if we know x type */
-	invalidate_work();
 }
 
 void pop_x(void)
@@ -499,14 +732,13 @@ void pop_x(void)
 	   when we track and use offsets of current X then ins ins */
 	/* Easier said than done on a 6800 */
 	if (cpu_has_pshx)
-		output_nf("pulx");
+		output_nf("Xpulx");
 	else {
 		output_nf("tsx");
-		output("ldx ,x");
+		output("Xldx ,x");
 		output_nf("ins");
 		output_nf("ins");
 	}
-	invalidate_x();
 }
 
 /*
@@ -539,10 +771,11 @@ void adjust_s(register int n, unsigned save_d)
 			x_fpoff = sp;
 			return;
 		}
+		/* As we don't fprel track this */
 		invalidate_x();
 		if (n > 0) {
 			/* Otherwise we know pulx is cheapest */
-			repeated_op(n / 2, "pulx");
+			repeated_op(n / 2, "Xpulx");
 			if (n & 1)
 				output_nf("ins");
 		}
@@ -559,8 +792,7 @@ void adjust_s(register int n, unsigned save_d)
 		cost = abxcost;
 	/* PULX might be fastest */
 	if (n > 0 && cpu_has_pshx && (n / 2) + (n & 1) <= cost) {
-		invalidate_x();
-		repeated_op(n / 2, "pulx");
+		repeated_op(n / 2, "Xpulx");
 		if (n & 1)
 			output_nf("ins");
 		return;
@@ -580,7 +812,7 @@ void adjust_s(register int n, unsigned save_d)
 		if(n > 255) {
 			load_b_const(255);
 			while(n >= 255) {
-				output("\tabx");
+				output("abx");
 				n -= 255;
 				/* TODO: Track here as we add */
 			}
@@ -713,41 +945,40 @@ void op32d_on_ptr(const char *op, const char *op2, unsigned off)
 void load32(register unsigned off)
 {
 	if (cpu_has_y) {
-		output("ldy %u,x", off);
-		output("ldd %u,x", off + 2);
+		output("Yldy %u,x", off);
+		output("Dldd %u,x", off + 2);
 	} else if (cpu_has_d) {
-		output("ldd %u,x", off);
+		output("Dldd %u,x", off);
 		store_d_hireg();
-		output("ldd %u,x", off + 2);
+		output("Dldd %u,x", off + 2);
 	} else {
-		output("ldaa %u,x", off + 2);
-		output("ldab %u,x", off + 3);
-		output("ldx %u,x", off);
+		output("Aldaa %u,x", off + 2);
+		output("Bldab %u,x", off + 3);
+		output("Xldx %u,x", off);
 		store_x_hireg();
-		invalidate_x();
 	}
 }
 
 void store32(register unsigned off, unsigned nr)
 {
 	if (cpu_has_y) {
-		output("sty %u,x", off);
-		output("std %u,x", off, off + 2);
+		output("Msty %u,x", off);
+		output("Mstd %u,x", off, off + 2);
 	} else if (cpu_has_d) {
-		output("std %u,x", off + 2);
+		output("Mstd %u,x", off + 2);
 		load_d_hireg();
-		output("std %u,x", off);
+		output("Mstd %u,x", off);
 		if (nr)
-			output("ldd %u,x", off + 2);
+			output("Dldd %u,x", off + 2);
 	} else {
-		output("stab %u,x", off + 3);
-		output("staa %u,x", off + 2);
+		output("Mstab %u,x", off + 3);
+		output("Mstaa %u,x", off + 2);
 		output_nf("psha");
 		/* FIXME: special case hireg still remains */
 		output("ldaa @hireg+1");
-		output("staa %u,x", off + 1);
+		output("Mstaa %u,x", off + 1);
 		output("ldaa @hireg");
-		output("staa %u,x", off);
+		output("Mstaa %u,x", off);
 		output_nf("pula");
 	}
 }
@@ -762,6 +993,9 @@ void uniop_on_ptr(register const char *op, register unsigned off,
 
 /*
  *	Generate a reference via X to a local
+ *
+ *	TODO: sort out tracking and who owns the fpoff bits so that
+ *	our invalidation is consistent.
  */
 unsigned make_local_ptr(unsigned off, unsigned rlim)
 {
@@ -831,7 +1065,7 @@ static unsigned make_tos_ptr(unsigned s)
 	/* TODO: we might have X pointing below the stack but in range and that would be just fine */
 	if (x_fpoff == sp + s && x_fprel == 1)
 		return 0;
-	output_nf("tsx");
+	output_nf("Xtsx");
 	x_fpoff = sp + s;
 	x_fprel = 1;
 	return 0;
@@ -1058,17 +1292,16 @@ unsigned write_uni_op(register struct node *r, const char *op, unsigned off)
 static void op8_on_tos(const char *op)
 {
 	unsigned off = make_tos_ptr(1);
-	output("%sb %u,x", op, off);
+	output("B%sb %u,x", op, off);
 	output_nf("ins");
 }
 
 static void op16_on_tos(const char *op)
 {
 	register unsigned off;
-	invalidate_work();
 	off = make_tos_ptr(2);
-	output("%sb %u,x", op, off + 1);
-	output("%sa %u,x", op, off);
+	output("B%sb %u,x", op, off + 1);
+	output("A%sa %u,x", op, off);
 	output_nf("ins");
 	output_nf("ins");
 }
@@ -1076,9 +1309,8 @@ static void op16_on_tos(const char *op)
 static void op16d_on_tos(const char *op)
 {
 	unsigned off;
-	invalidate_work();
 	off = make_tos_ptr(2);
-	output("%sd %u,x", op, off);
+	output("D%sd %u,x", op, off);
 	output("ins");
 	output("ins");
 }
@@ -1101,8 +1333,8 @@ unsigned write_tos_op(struct node *n, register const char *op)
 		op16_on_tos(op);
 	else
 		op8_on_tos(op);
-	/* TODO: we can do better here */
-	invalidate_work();
+	/* TODO: we can do better here on tracking ??*/
+	/* Right now callers will all invalidate */
 	return 1;
 }
 
@@ -1115,27 +1347,24 @@ unsigned write_tos_opd(struct node *n, const char *op, const char *unused)
 		op16d_on_tos(op);
 	else
 		op8_on_tos(op);
-	/* TODO: We can do better here */
-	invalidate_work();
+	/* Ditto - tracking */
 	return 1;
 }
 
 static void uniop8_on_tos(const char *op)
 {
 	unsigned off = make_tos_ptr(1);
-	invalidate_work();
 	/* TODO: We can do better here */
-	output("%s %u,x", op, off);
+	output("B%s %u,x", op, off);
 	output_nf("ins");
 }
 
 static void uniop16_on_tos(register const char *op)
 {
 	register unsigned off = make_tos_ptr(2);
-	invalidate_work();
 	/* TODO: We can do better here */
-	output("%s %u,x", op, off + 1);
-	output("%s %u,x", op, off);
+	output("B%s %u,x", op, off + 1);
+	output("A%s %u,x", op, off);
 	output_nf("ins");
 	output_nf("ins");
 }
@@ -1163,12 +1392,10 @@ unsigned left_shift(register struct node *n)
 		return 0;
 	v = n->right->value;
 	if (s == 1) {
-		if (v >= 8) {
+		if (v >= 8)
 			load_b_const(0);
-			return 1;
-		}
-		invalidate_work();
-		repeated_op(v, "lslb");
+		else
+			repeated_op(v, "Blslb");
 		return 1;
 	}
 	if (s == 2) {
@@ -1180,17 +1407,14 @@ unsigned left_shift(register struct node *n)
 			load_a_b();
 			load_b_const(0);
 			v -= 8;
-			if (v) {
-				invalidate_work();
-				repeated_op(v, "lsla");
-			}
+			if (v)
+				repeated_op(v, "Alsla");
 			return 1;
 		}
 		while(v--) {
-			output("lslb");
-			output("rola");
+			output("Blslb");
+			output("Arola");
 		}
-		invalidate_work();
 		return 1;
 	}
 	return 0;
@@ -1213,9 +1437,8 @@ unsigned right_shift(register struct node *n)
 			load_b_const(0);
 			return 1;
 		}
-		invalidate_work();
 		while(v--)
-			output("%sb", op);
+			output("B%sb", op);
 		return 1;
 	}
 	if (s == 2) {
@@ -1229,16 +1452,14 @@ unsigned right_shift(register struct node *n)
 			v -= 8;
 			if (v) {
 				while(v--)
-					output("%sb", op);
-				invalidate_work();
+					output("B%sb", op);
 			}
 			return 1;
 		}
 		while(v--) {
-			output("%sa", op);
-			output("rorb");
+			output("A%sa", op);
+			output("Brorb");
 		}
-		invalidate_work();
 		return 1;
 	}
 	return 0;
@@ -1248,7 +1469,7 @@ unsigned right_shift(register struct node *n)
    not harm D in the process. We can make this smarter over time if needed.
    Might be worth passing if we can trash D as it will help make_local_ptr
    later, and will be true for some load cases */
-unsigned can_load_r_simple(struct node *r, unsigned off)
+unsigned can_load_r_simple(struct node *r)
 {
 	unsigned s = get_size(r->type);
 	if (s == 4)
@@ -1267,7 +1488,7 @@ unsigned can_load_r_simple(struct node *r, unsigned off)
 
 /* Also allow offset in the result and some level of complexity via
    lea for offsets on things like struct */
-unsigned can_load_r_with(struct node *r, unsigned off)
+unsigned can_load_r_with(struct node *r)
 {
 	unsigned s = get_size(r->type);
 	if (s == 4)
@@ -1286,7 +1507,7 @@ unsigned can_load_r_with(struct node *r, unsigned off)
 
 /* For 6800 at least it is usually cheaper to reload even if the value
    we want is in D */
-static unsigned load_r_with(char reg, register struct node *r, unsigned off)
+static unsigned load_r_with(char reg, register struct node *r)
 {
 	register unsigned v = r->value;
 	switch(r->op) {
@@ -1295,19 +1516,15 @@ static unsigned load_r_with(char reg, register struct node *r, unsigned off)
 	case T_LOCAL:
 		/* TODO: will need a Y specific rule for HC11 */
 		/* Worst case for size is 252 */
-		return make_local_ptr(v + off, 252);
+		return make_local_ptr(v, 252);
 	case T_LREF:
-		off = make_local_ptr(v + off, 252);
+		off = make_local_ptr(v, 252);
 		output("ld%c %u,x", reg, off);
-		if(reg == 'x')
-			invalidate_x();
 		break;
 	case T_CONSTANT:
 	case T_NREF:
 	case T_NAME:
-		output("ld%c %s", reg, addr_form(r, off, 2));
-		if(reg == 'x')
-			invalidate_x();
+		output("%cld%c %s", reg, addr_form(r, 0, 2));
 		break;
 	default:
 		error("lxw");
@@ -1317,7 +1534,10 @@ static unsigned load_r_with(char reg, register struct node *r, unsigned off)
 
 unsigned load_x_with(struct node *r, unsigned off)
 {
-	return load_r_with('x', r, off);
+	unsigned n = load_r_with('x', r, off);
+	/* Caller owns tracking */
+	invalidate_x();
+	return n;
 }
 
 /* 6809 specific register loading */
@@ -1343,12 +1563,12 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *op)
 	   shortcut it. Need to think about this for signed math. I think we can do signed
 	   math if we use uop in the size 2 upper match case : TODO*/
 	if (s == 1 || (op == uop && a_valid && (v >> 8) == a_val))
-		output("cmpb #%u", BYTE(v));
+		output("BZcmpb #%u", BYTE(v));
 	else if (s == 2 && cpu_has_d)
-		output("subd #%u", WORD(v));
+		output("DZsubd #%u", WORD(v));
 	else
 		return 0;
-	output("jsr %s", op);
+	output("DZjsr %s", op);
 	n->flags |= ISBOOL;
 	invalidate_work();
 	set_a(0);
@@ -1371,23 +1591,23 @@ static unsigned do_fast_mul(unsigned s, unsigned n)
 		case 1:
 			return 1;
 		case 2:
-			output("lslb");
-			output("rola");
+			output("Blslb");
+			output("Arola");
 			return 1;
 		case 3:
 			if (cpu_has_d) {
 				output("std @tmp");
-				output("lslb");
-				output("rola");
-				output("addd @tmp");
+				output("Blslb");
+				output("Arola");
+				output("Daddd @tmp");
 				return 1;
 			}
 			break;
 		case 4:
-			output("lslb");
-			output("rola");
-			output("lslb");
-			output("rola");
+			output("Blslb");
+			output("Arola");
+			output("Blslb");
+			output("Arola");
 			return 1;
 		case 256:
 		case 512:
@@ -1400,7 +1620,7 @@ static unsigned do_fast_mul(unsigned s, unsigned n)
 				output("asla");
 				n >>= 1;
 			}
-			output("clrb");
+			load_b_const(0);
 			return 1;
 	}
 	if (optsize)
@@ -1410,10 +1630,10 @@ static unsigned do_fast_mul(unsigned s, unsigned n)
 		/* FIXME D form */
 		output("staa @tmp");
 		output("stab @tmp+1");
-		output("lslb");
-		output("rola");
-		output("addb @tmp+1");
-		output("adca @tmp");
+		output("Blslb");
+		output("Arola");
+		output("Baddb @tmp+1");
+		output("Aadca @tmp");
 		return 1;
 	case 5:		/* 22cyc, 12bytes */
 		if (cpu_has_d)
@@ -1437,22 +1657,30 @@ static unsigned do_fast_mul(unsigned s, unsigned n)
 	case 16:
 	case 32:
 		while(n >= 2) {
-			output("lslb");
-			output("rola");
+			output("Blslb");
+			output("Arola");
 			n >>= 1;
 		}
 		return 1;
 	case 64:
 		/* Can it be smaller? 20 cycles, 10 bytes */
 		/* FIXME: are these worth it */
-		puts("\tpsha\n\ttba\t\n\tpulb\n\tlsrb\n\trora\n\trorb\n\trora\n\trorb\n\tandb #$C0");
+		output("psha");
+		load_b_a();
+		output("Bpulb");
+		output("Blsrb");
+		output("Arora");
+		output("Brorb");
+		output("Arora");
+		output("Brora");
+		output("Bandb #$C0");
 		return 1;
 	case 128:
-		output("lsra");
+		output("Alsra");
 		load_a_b();
-		output("rora");
-		output("rorb");
-		output("andb #0x80");
+		output("Arora");
+		output("Brorb");
+		output("Bandb #0x80");
 		return 1;
 	}
 	return 0;
@@ -1484,8 +1712,8 @@ unsigned gen_fast_div(unsigned n, unsigned s, unsigned u)
 		return 0;
 	if (u) {
 		while(n > 1) {
-			output("lsra");
-			output("rorb");
+			output("Alsra");
+			output("Brorb");
 			n >>= 1;
 		}
 	} else {
@@ -1496,12 +1724,11 @@ unsigned gen_fast_div(unsigned n, unsigned s, unsigned u)
 		add_d_const(m);
 		outlabel("X%u", label);
 		while(n > 1) {
-			output("asra");
-			output("rorb");
+			output("Aasra");
+			output("Brorb");
 			n >>= 1;
 		}
 	}
-	invalidate_work();
 	return 1;
 }
 
@@ -1535,9 +1762,9 @@ unsigned cmp_op(register struct node *n, const char *uop, const char *op)
 	if (n->right->type & UNSIGNED)
 		op = uop;
 	if (s == 1)
-		op8_on_tos("cmp");
+		op8_on_tos("Bcmp");
 	else if (s == 2 && cpu_has_d)
-		op16d_on_tos("sub");
+		op16d_on_tos("Dsub");
 	else
 		return 0;
 	output("jsr %s", op);
@@ -1670,6 +1897,6 @@ void gen_helpclean(struct node *n)
 			adjust_s(s, 1);
 		/* C style ops that are ISBOOL didn't set the bool flags */
 		if (n->flags & ISBOOL)
-			output("tstb");
+			output("Ztstb");
 	}
 }

@@ -2,24 +2,278 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdarg.h>
 #include "compiler.h"
 #include "backend.h"
 #include "backend-6800.h"
 
 static unsigned op8r_on_node(struct node *r, char reg, const char *op, unsigned off);
 static unsigned can_load_r8_simple(struct node *r, unsigned off);
-static unsigned load_r_with(char reg, struct node *r, unsigned off);
+static unsigned load_r_with(char reg, struct node *r);
 
 unsigned label;		/* Used to hand out local labels in the form X%u */
+
+/*
+ *	Start with some simple X versus S tracking
+ *	to clean up the local accesses
+ */
+
+#define R_D	0
+#define R_X	1
+#define R_Y	2
+#define R_U	3
+#define R_DS	4		/* D store track */
+#define NR_R	5
+
+static struct node rnode[NR_R];
+/* We track A & B constant specially */
+uint8_t a_val;
+uint8_t b_val;
+unsigned a_valid;
+unsigned b_valid;
+const char *trackf;
+const char stdflags[] = "neeq";	/* bne true, beq false */
+
+void invalidate_all(void)
+{
+	rnode[R_D].op = 0;
+	rnode[R_X].op = 0;
+	rnode[R_Y].op = 0;
+	rnode[R_U].op = 0;
+	a_valid = 0;
+	b_valid = 0;
+}
+
+/* Invalidate the node tracking for D. Doesn't however
+   invalidate constant tracking */
+static void inv_d_node(void)
+{
+	d_valid = 0;
+	rnode[R_D].op = 0;
+	rnode[R_DS].op = 0;
+}
+
+void invalidate_x(void)
+{
+	rnode[R_X].op = 0;
+}
+
+void invalidate_y(void)
+{
+	rnode[R_X].op = 0;
+}
+
+void invalidate_u(void)
+{
+	rnode[R_X].op = 0;
+}
+
+/* If we lose tracking on A or B then defacto we lost tracking on D */
+void invalidate_a(void)
+{
+	a_valid = 0;
+	inv_d_node();
+}
+
+void invalidate_b(void)
+{
+	b_valid = 0;
+	inv_d_node();
+}
+
+/* Invalidate D entirely including constant tracking. Also Y as we might
+   be working in longs. This isn't ideal and wants optimizing more */
+void invalidate_work(void)
+{
+	inv_d_node();
+	a_valid = 0;
+	b_valid = 0;
+	rnode[R_Y].op = 0;
+}
+
+/* Any registers that are copies of a variable might now be wrong as
+   we wrote through a pointer */
+void invalidate_mem(void)
+{
+	struct node *n = rnode;
+	while(n < rnode + NR_R) {
+		if (n->op == T_LREF || n->op == T_NREF)
+			n->op = 0;
+		n++;
+	}
+}
+
+void set_r_node(register struct node *r, struct node *n)
+{
+	memcpy(r, n, sizeof(struct node));
+	switch(r->op) {
+	case T_LSTORE:
+		r->op = T_LREF;
+		break;
+	case T_NSTORE:
+		r->op = T_NREF;
+		break;
+	case T_RSTORE:
+		r->op = T_RREF;
+		break;
+	case T_NREF:
+	case T_LREF:
+	case T_NAME:
+	case T_LOCAL:
+	case T_ARGUMENT:
+		break;
+	default:
+		r->op = 0;
+		/* Any constant form on D is still fine */
+		return;
+	}
+}
+
+/* D holds the content pointed to by n */
+void set_r_node_ptr(register struct node *r, struct node *n)
+{
+	memcpy(r, n, sizeof(struct node));
+	switch(r->op) {
+	case T_NAME:
+		r->op = T_NREF;
+		break;
+	case T_ARGUMENT:
+		r->value += argbase + frame_len;
+		/* Fall through */
+	case T_LOCAL:
+		r->op = T_LREF;
+		break;
+	default:
+		r->op = 0;
+		return;
+	}
+}
+
+/* Do we need to check fields by type or will the default filling
+   be sufficient ? */
+
+/* TODO: Constants for D need separate handling */
+unsigned r_holds_node(struct node *r, struct node *n)
+{
+	if (r->op == 0)
+		return 0;
+	if (r->op != n->op)
+		return 0;
+	if (r->snum != n->snum)
+		return 0;
+	if (r->value != n->value)
+		return 0;
+	return 1;
+}
+
+void modify_a(uint8_t val)
+{
+	a_val = val;
+	inv_d_node();
+}
+
+void modify_b(uint8_t val)
+{
+	b_val = val;
+	inv_d_node();
+}
+
+void set_a(uint8_t val)
+{
+	a_val = val;
+	a_valid = 1;
+	inv_d_node();
+}
+
+void set_b(uint8_t val)
+{
+	b_val = val;
+	b_valid = 1;
+	inv_d_node();
+}
+
+static const char *outflags(register const char *p)
+{
+	while(isupper(*p)) {
+		switch(*p) {
+		case 'A':
+			invalidate_a();
+			break;
+		case 'B':
+			invalidate_b();
+			break;
+		case 'D':
+			invalidate_work();
+			break;
+		case 'M':
+			invalidate_mem();
+			break;
+		case 'U':
+			/* Not tracked yet */
+			invalidate_u();
+			break;
+		case 'X':
+			invalidate_x();
+			break;
+		case 'Y':
+			invalidate_y();
+			break;
+		case 'Z':
+			/* TODO flags */
+			trackf = stdflags;
+			break;
+		case ' ':
+			break;
+		default:
+			error("ot");
+		}
+		p++;
+	}
+	return p;
+}
+
+void output_nf(const char *p, ...)
+{
+	va_list v;
+	va_start(v, p);
+	p = outflags(p);
+	putchar('\t');
+	vprintf(p, v);
+	putchar('\n');
+	va_end(v);
+}
+
+void output(const char *p, ...)
+{
+	va_list v;
+	va_start(v, p);
+	trackf = NULL;		/* Flags no longer known */
+	p = outflags(p);
+	putchar('\t');
+	vprintf(p, v);
+	putchar('\n');
+	va_end(v);
+}
+
+void outlabel(const char *p, ...)
+{
+	va_list v;
+	va_start(v, p);
+	p = outflags(p);
+	vprintf(p, v);
+	putchar(':');
+	putchar('\n');
+	va_end(v);
+}
 
 /* Management of function call stacks. This gets a bit hairy as we want
    to optimize for the multi-register push */
 
-#define R_A		1
-#define R_B		2
-#define R_X		4
-#define R_Y		8
-#define R_U		16
+#define RUSED_A		1
+#define RUSED_B		2
+#define RUSED_X		4
+#define RUSED_Y		8
+#define RUSED_U		16
 
 #define USE_A		1
 #define USE_B		2
@@ -47,20 +301,18 @@ void push_d(void)
 
 void pop_d(void)
 {
-	output_nf("puls d");
+	output_nf("Dpuls d");
 }
 
+/* TODO: tracking not invalidate */
 void tfr_u_d(void)
 {
-	output_nf("tfr u,d");
-	/* TODO: when tracking sorted D is now a copy of the regvar */
-	invalidate_work();
+	output_nf("Dtfr u,d");
 }
 
 void tfr_d_u(void)
 {
-	output_nf("tfr d,u");
-	/* Don't track U yet but this will make D a copy of the regvar */
+	output_nf("Utfr d,u");
 }
 
 void adjust_s(int n, unsigned unused)
@@ -90,11 +342,11 @@ unsigned gen_add32(unsigned long v)
 	if (l) {
 		add_d_const(l);
 		output_nf("bcc X%u", ++label);
-		output("leay 1,y");
+		output("Yleay 1,y");
 		outlabel("X%u", label);
 	}
 	if (h)
-		output("leay %u,y", h);
+		add_y_const(h);
 	return 1;
 }
 
@@ -259,15 +511,15 @@ static void pushregs(void)
 	/* We have the registers loaded, now push and clean up the
 	   tracking stack */
 	printf("\tpshs ");
-	if (rused & R_A)
+	if (rused & RUSED_A)
 		sp++;
-	if (rused & R_B)
+	if (rused & RUSED_B)
 		sp++;
-	if (rused & R_X)
+	if (rused & RUSED_X)
 		sp += 2;
-	if (rused & R_Y)
+	if (rused & RUSED_Y)
 		sp += 2;
-	if (rused & R_U)
+	if (rused & RUSED_U)
 		sp += 2;
 	while(rused) {
 		if (rused & 1) {
@@ -313,16 +565,12 @@ static void argstack(struct node *n)
 		codegen_lr(n);
 		break;
 	case USE_X:
-		v = load_x_with(n, 0);
-		if (v) {
-			output("leax %u,x",  WORD(v));
-			invalidate_x();	/* for now */
-		}
+		v = load_x_with(n);
+		add_x_const(v);
 		break;
 	case USE_Y:
-		v= load_r_with('y', n, 0);
-		if (v)
-			output("leay %u,y",  WORD(v));
+		v= load_r_with('y', n);
+		add_y_const(v);
 		break;
 	case USE_U:
 		/* Already usable */
@@ -333,8 +581,8 @@ static void argstack(struct node *n)
 		   the next two registers */
 		if (n->op == T_CONSTANT) {
 			load_d_const(n->value >> 16);
-			output("ldx #%u", v);
-			rused = R_A | R_B | R_X;
+			load_x_const(v);
+			rused = RUSED_A | RUSED_B | RUSED_X;
 			pushregs();
 			break;
 		}
@@ -365,15 +613,15 @@ static void prep_push(struct node *n)
 	if (s == 1) {
 		if (rused == 0 && can_load_r8_simple(n, 0)) {
 			stackop |= USE_A;
-			rused |= R_A;
-		} else if (rused == R_A && can_load_r8_simple(n, 0)) {
+			rused |= RUSED_A;
+		} else if (rused == RUSED_A && can_load_r8_simple(n, 0)) {
 			stackop |= USE_B;
-			rused |= R_B;
+			rused |= RUSED_B;
 		} else {
 			queue_push();
 			/* Push ourselves an op to codegen_lr() then push B */
 			*fstk++ = USE_D << 3;
-			*rstk++ = R_B;
+			*rstk++ = RUSED_B;
 		}
 	} else if (s == 2) {
 		/* A or B or both pushed already ? */
@@ -382,26 +630,26 @@ static void prep_push(struct node *n)
 		if (n->op == T_RREF) {
 			stackop |= USE_U;
 			*fstk++ = stackop << 3;
-			*rstk++ = rused | R_U;
+			*rstk++ = rused | RUSED_U;
 			stackop = 0;
 			rused = 0;
 		} else if (rused == 0 && can_load_r_simple(n, 0) && n->op != T_LOCAL && n->op != T_ARGUMENT) {
 			stackop |= USE_D;
-			rused |= R_A|R_B;
-		} else if (can_load_r_with(n, 0) && (rused & (R_X|R_Y)) != (R_X|R_Y)) {
+			rused |= RUSED_A|RUSED_B;
+		} else if (can_load_r_with(n) && (rused & (RUSED_X|RUSED_Y)) != (RUSED_X|RUSED_Y)) {
 			/* X and Y not yet used so can use X */
-			if (rused & R_X) {
+			if (rused & RUSED_X) {
 				stackop |= USE_Y;
-				rused |= R_Y;
+				rused |= RUSED_Y;
 			} else {
 				stackop |= USE_X;
-				rused |= R_X;
+				rused |= RUSED_X;
 			}
 		} else {
 			queue_push();
 			/* Push ourselves an op */
 			*fstk++ = USE_D << 3;
-			*rstk++ = R_A | R_B;
+			*rstk++ = RUSED_A | RUSED_B;
 		}
 	} else {
 		/* Will tackle long stuff later */
@@ -523,7 +771,6 @@ static unsigned make_with_op(char r, register uint8_t ev, register uint8_t tv)
 /* TODO:
 	spot case where one half is right and other can be optimized
 	spot case where right half can be SEXed into left
-	spot case we can use tba
  */
 void load_d_const(uint16_t n)
 {
@@ -545,7 +792,7 @@ void load_d_const(uint16_t n)
 
 	a_valid = 1;	/* We know the byte values */
 	b_valid = 1;
-	d_valid = 0;	/* No longer an object reference */
+	inv_d_node();
 	a_val = hi;
 	b_val = lo;
 
@@ -565,7 +812,7 @@ void load_a_const(uint8_t n)
 		output("lda #%u", n & 0xFF);
 	a_valid = 1;
 	a_val = n;
-	d_valid = 0;
+	inv_d_node();
 }
 
 void load_b_const(uint8_t n)
@@ -578,7 +825,7 @@ void load_b_const(uint8_t n)
 		output("ldb #%u", n & 0xFF);
 	b_valid = 1;
 	b_val = n;
-	d_valid = 0;
+	inv_d_node();
 }
 
 void add_d_const(uint16_t n)
@@ -597,10 +844,10 @@ void add_d_const(uint16_t n)
 		output("adda #%u", n >> 8);
 
 	if (b_val + (n & 0xFF) < b_val)
-		a_val += (n >> 8) + 1;
+		modify_a(a_val + (n >> 8) + 1);
 	else
-		a_val += (n >> 8);
-	b_val += (n & 0xFF);
+		modify_a(a_val + (n >> 8));
+	modify_b(b_val + BYTE(n));
 }
 
 void add_b_const(uint8_t n)
@@ -609,7 +856,7 @@ void add_b_const(uint8_t n)
 		return;
 	output("addb #%u", n & 0xFF);
 	b_val += n;
-	d_valid = 0;
+	inv_d_node();
 
 }
 
@@ -618,7 +865,7 @@ void load_a_b(void)
 	output_nf("tfr b,a");
 	a_val = b_val;
 	a_valid = b_valid;
-	d_valid = 0;
+	inv_d_node();
 }
 
 void load_b_a(void)
@@ -626,13 +873,46 @@ void load_b_a(void)
 	output_nf("tfr a,b");
 	b_val = a_val;
 	b_valid = a_valid;
-	d_valid = 0;
+	inv_d_node();
+}
+
+void add_x_const(uint16_t v)
+{
+	if (v) {
+		output("leax %u,x", v);
+		modify_r_by(R_X, v);
+	}
+}
+
+void add_y_const(uint16_t v)
+{
+	if (v) {
+		output("leay %u,y", v);
+		modify_r_by(R_Y, v);
+	}
+}
+
+void load_x_const(uint16_t v)
+{
+	output("ldx #%u", v);
+	set_r_to(R_X, v);
+}
+
+void load_y_const(uint16_t v)
+{
+	output("ldy #%u", v);
+	set_r_to(R_Y, v);
+}
+
+void load_y_const(uint16_t v)
+{
+	output("ldu #%u", v);
+	set_r_to(R_U, v);
 }
 
 void move_s_d(void)
 {
-	output_nf("tfr s,d");
-	invalidate_work();
+	output_nf("Dtfr s,d");
 }
 
 void move_d_s(void)
@@ -642,36 +922,33 @@ void move_d_s(void)
 
 void swap_d_y(void)
 {
+	track_swap(R_D, R_Y);
 	output_nf("exg d,y");
-	/* Until tracking improves */
-	invalidate_work();
 }
 
 void swap_d_x(void)
 {
+	track_swap(R_D, R_X);
 	output_nf("exg d,x");
-	invalidate_work();
-	invalidate_x();
 }
 
 /* Get D into X (may trash D) */
 void make_x_d(void)
 {
-	output_nf("tfr d,x");
-	invalidate_x();
+	track_copy(R_D, R_X);
+	output_nf("Xtfr d,x");
 }
 
 /* Get X into D (may trash X) */
 void make_d_x(void)
 {
-	output_nf("tfr x,d");
-	invalidate_x();
+	track_copy(R_X, R_D);
+	output_nf("Dtfr x,d");
 }
 
 void pop_x(void)
 {
-	output_nf("puls x");
-	invalidate_x();
+	output_nf("Xpuls x");
 }
 
 /*
@@ -680,58 +957,58 @@ void pop_x(void)
  */
 void op8_on_ptr(const char *op, unsigned off)
 {
-	output("%sb %u,x", op, off);
+	output("B%sb %u,x", op, off);
 }
 
 /* Do the low byte first in case it's add adc etc */
 void op16_on_ptr(const char *op, const char *op2, unsigned off)
 {
 	/* Big endian */
-	output("%sb %u,x", op, off + 1);
-	output("%sa %u,x", op2, off);
+	output("B%sb %u,x", op, off + 1);
+	output("A%sa %u,x", op2, off);
 }
 
 /* Operations where D can be used on later processors */
 void op16d_on_ptr(const char *op, const char *op2, unsigned off)
 {
 	/* Big endian */
-	output("%sd %u,x", op, off);
+	output("D%sd %u,x", op, off);
 }
 
 static void op8_on_tos(const char *op)
 {
-	output("%sb ,s+", op);
+	output("B%sb ,s+", op);
 }
 
 static void op32_on_ptr(const char *op, const char *op2, unsigned off)
 {
-	output("%sb %u,x", op, off + 3);
-	output("%sa %u,x", op2, off + 2);
+	output("B%sb %u,x", op, off + 3);
+	output("A%sa %u,x", op2, off + 2);
 	swap_d_y();
-	output("%sb %u,x", op2, off + 1);
-	output("%sa %u,x", op2, off);
+	output("B%sb %u,x", op2, off + 1);
+	output("A%sa %u,x", op2, off);
 	swap_d_y();
 }
 
 void op32d_on_ptr(const char *op, const char *op2, unsigned off)
 {
-	output("%sd %u,x", op, off + 2);
+	output("D%sd %u,x", op, off + 2);
 	swap_d_y();
-	output("%sb %u,x", op2, off + 1);
-	output("%sa %u,x", op2, off);
+	output("B%sb %u,x", op2, off + 1);
+	output("A%sa %u,x", op2, off);
 	swap_d_y();
 }
 
 void load32(unsigned off)
 {
-	output("ldy %u,x", off);
-	output("ldd %u,x", off + 2);
+	output("Yldy %u,x", off);
+	output("Dldd %u,x", off + 2);
 }
 
 void store32(unsigned off, unsigned nr)
 {
-	output("sty %u,x", off);
-	output("std %u,x", off + 2);
+	output("Msty %u,x", off);
+	output("Mstd %u,x", off + 2);
 }
 
 void uniop_on_ptr(register const char *op, register unsigned off,
@@ -744,16 +1021,7 @@ void uniop_on_ptr(register const char *op, register unsigned off,
 
 unsigned make_local_ptr(unsigned off, unsigned rlim)
 {
-	output("leax %u,s", off + sp);
-	return 0;
-}
-
-/* Do we need this on 6809 ? */
-unsigned make_tos_ptr(void)
-{
-	output_nf("tfr s,x");
-	x_fpoff = sp;
-	x_fprel = 1;
+	output("Xleax %u,s", off + sp);
 	return 0;
 }
 
@@ -791,7 +1059,7 @@ static char *addr_form(register struct node *r, unsigned off, unsigned s)
 }
 
 /* Those with address forms we can directly load. Need to look at locals via ,s */
-unsigned can_load_d_nox(struct node *n, unsigned off)
+unsigned can_load_d_nox(struct node *n)
 {
 	register unsigned op = n->op;
 	if (op == T_CONSTANT || op == T_NAME || op == T_NREF)
@@ -804,8 +1072,6 @@ static unsigned op8r_on_node(struct node *r, char reg, const char *op, unsigned 
 {
 	unsigned v = r->value;
 	unsigned store = 0;
-
-	invalidate_work();	/* FIXME */
 
 	switch(r->op) {
 	case T_LSTORE:
@@ -829,7 +1095,7 @@ static unsigned op8r_on_node(struct node *r, char reg, const char *op, unsigned 
 	default:
 		return 0;
 	}
-	/* FIXME for constant load */
+	/* FIXME load tracking etc - should be in the caller */
 	if (store)
 		invalidate_mem();
 	else
@@ -854,23 +1120,24 @@ unsigned op16_on_node(struct node *r, const char *op, const char *op2, unsigned 
 	case T_LREF:
 		/* Big endian */
 		off += v + sp;
-		output("%sb %u,s", op, off + 1);
-		output("%sa %u,s", op2, off);
+		output("B%sb %u,s", op, off + 1);
+		output("A%sa %u,s", op2, off);
 		break;
 	case T_CONSTANT:
-		output("%sa #>%u", op, (v + off) & 0xFFFF);
-		output("%sb #<%u", op2, (v + off) & 0xFFFF);
+		output("A%sa #>%u", op, (v + off) & 0xFFFF);
+		output("B%sb #<%u", op2, (v + off) & 0xFFFF);
 		break;
 	case T_NSTORE:
 		store = 1;
 	case T_NREF:
 	case T_NAME:
-		output("%sa %s", op, addr_form(r, off, 1));
-		output("%sb %s", op2, addr_form(r, off + 1, 1));
+		output("A%sa %s", op, addr_form(r, off, 1));
+		output("B%sb %s", op2, addr_form(r, off + 1, 1));
 		break;
 	default:
 		return 0;
 	}
+	/* FIXME: constant load */
 	if (store)
 		invalidate_mem();
 	else
@@ -888,13 +1155,13 @@ unsigned op16d_on_node(struct node *r, const char *op, const char *op2, unsigned
 		store = 1;
 	case T_LREF:
 		/* Big endian */
-		output("%sd %u,s", op, off + v + sp);
+		output("D%sd %u,s", op, off + v + sp);
 		break;
 	case T_LDEREF:
 		/* Big endian */
 		if (r->snum)
 			return 0;
-		output("%sd [%u,s]", op, off + v + sp);
+		output("D%sd [%u,s]", op, off + v + sp);
 		break;
 	case T_NSTORE:
 		store = 1;
@@ -906,6 +1173,7 @@ unsigned op16d_on_node(struct node *r, const char *op, const char *op2, unsigned
 	default:
 		return 0;
 	}
+	/* FIXME: constant load */
 	if (store)
 		invalidate_mem();
 	else
@@ -913,6 +1181,8 @@ unsigned op16d_on_node(struct node *r, const char *op, const char *op2, unsigned
 	return 1;
 }
 
+/* OP16R forms are always a single register so the caller can pass any
+   invalidations around */
 static unsigned op16r_on_node(struct node *r, char reg, const char *op, unsigned off)
 {
 	unsigned v = r->value;
@@ -937,11 +1207,13 @@ static unsigned op16r_on_node(struct node *r, char reg, const char *op, unsigned
 		if (r->op == T_MINUS)
 			v = -v;
 		op16r_on_node(r->left, reg, op, off);
+		modify_r_by(to_r(reg), v);
 		output("lea%c %u,%c", reg, WORD(v), reg);
 		break;
 	default:
 		return 0;
 	}
+	/* TODO: const case tracking */
 	return 1;
 }
 
@@ -1004,15 +1276,13 @@ unsigned write_uni_op(register struct node *r, const char *op, unsigned off)
 
 static void op16_on_tos(const char *op)
 {
-	invalidate_work();		/* ?? needed on 09 ? */
-	output("%sa ,s+", op);
-	output("%sb ,s+", op);
+	output("A%sa ,s+", op);
+	output("B%sb ,s+", op);
 }
 
 void op16d_on_tos(const char *op)
 {
-	invalidate_work();
-	output("%sd ,s++", op);
+	output("D%sd ,s++", op);
 }
 
 unsigned write_tos_op(struct node *n, const char *op)
@@ -1035,10 +1305,10 @@ unsigned write_tos_opd(struct node *n, const char *op, const char *op2)
 {
 	unsigned s = get_size(n->type);
 	if (s == 4) {
-		output("%sd 2,s", op);
+		output("D%sd 2,s", op);
 		swap_d_y();
-		output("%sb 1,s", op2);
-		output("%sa ,s", op2);
+		output("B%sb 1,s", op2);
+		output("A%sa ,s", op2);
 		swap_d_y();
 		output_nf("leas 4,s");
 		return 1;
@@ -1046,7 +1316,6 @@ unsigned write_tos_opd(struct node *n, const char *op, const char *op2)
 		op16d_on_tos(op);
 	else
 		op8_on_tos(op);
-	invalidate_work();
 	return 1;
 }
 
@@ -1064,6 +1333,7 @@ unsigned write_tos_uniop(struct node *n, const char *op)
 /* TODO: decide how much we inline for -Os */
 static void left16(unsigned v)
 {
+	/* FIXME: tracking if constant */
 	if (v >= 16)
 		load_d_const(0);
 	else if (v >= 8) {
@@ -1071,13 +1341,13 @@ static void left16(unsigned v)
 		load_b_const(0);
 		v -= 8;
 		if (v)
-			repeated_op(v, "lsla");
+			repeated_op(v, "Alsla");
 	} else {
 		if (optsize && v > 2)
-			output("jsr __lsl%u", v);
+			output("Djsr __lsl%u", v);
 		else while(v--) {
-			output("lslb");
-			output("rola");
+			output("Blslb");
+			output("Arola");
 		}
 	}
 }
@@ -1095,13 +1365,11 @@ unsigned left_shift(struct node *n)
 			load_b_const(0);
 			return 1;
 		}
-		invalidate_work();
-		repeated_op(v, "lslb");
+		repeated_op(v, "Blslb");
 		return 1;
 	}
 	if (s == 2) {
 		left16(v);
-		invalidate_work();
 		return 1;
 	}
 	return 0;
@@ -1124,9 +1392,8 @@ unsigned right_shift(struct node *n)
 			load_b_const(0);
 			return 1;
 		}
-		invalidate_work();
 		while(v--)
-			output("%sb", op);
+			output("B%sb", op);
 		return 1;
 	}
 	if (s == 2) {
@@ -1140,18 +1407,16 @@ unsigned right_shift(struct node *n)
 			v -= 8;
 			if (v) {
 				while(v--)
-					output("%sb", op);
-				invalidate_work();
+					output("B%sb", op);
 			}
 			return 1;
 		}
 		if (optsize && v > 2)
-			output("jsr __%s%u", op, v);
+			output("Djsr __%s%u", op, v);
 		else while(v--) {
-			output("%sa", op);
-			output("rorb");
+			output("A%sa", op);
+			output("Brorb");
 		}
-		invalidate_work();
 		return 1;
 	}
 	return 0;
@@ -1177,7 +1442,7 @@ unsigned can_load_r_simple(struct node *r, unsigned off)
 	return 0;
 }
 
-static unsigned can_load_r8_simple(struct node *r, unsigned off)
+static unsigned can_load_r8_simple(struct node *r)
 {
 	switch(r->op) {
 	case T_ARGUMENT:
@@ -1195,7 +1460,7 @@ static unsigned can_load_r8_simple(struct node *r, unsigned off)
 
 /* Also allow offset in the result and some level of complexity via
    lea for offsets on things like struct */
-unsigned can_load_r_with(struct node *r, unsigned off)
+unsigned can_load_r_with(struct node *r)
 {
 	switch(r->op) {
 	case T_ARGUMENT:
@@ -1210,7 +1475,7 @@ unsigned can_load_r_with(struct node *r, unsigned off)
 	case T_PLUS:
 	case T_MINUS:
 		/* For now - we ought to be able to recurse these */
-		if (!can_load_r_simple(r->left, off))
+		if (!can_load_r_simple(r->left))
 			return 0;
 		if (r->right->op != T_CONSTANT)
 			return 0;
@@ -1221,7 +1486,7 @@ unsigned can_load_r_with(struct node *r, unsigned off)
 
 /* For 6800 at least it is usually cheaper to reload even if the value
    we want is in D */
-static unsigned load_r_with(char reg, struct node *r, unsigned off)
+static unsigned load_r_with(char reg, struct node *r)
 {
 	unsigned v = r->value;
 	switch(r->op) {
@@ -1237,7 +1502,7 @@ static unsigned load_r_with(char reg, struct node *r, unsigned off)
 	case T_NREF:
 	case T_NAME:
 	case T_RDEREF:
-		output("ld%c %s", reg, addr_form(r, off, 2));
+		output("ld%c %s", reg, addr_form(r, 0, 2));
 		break;
 	case T_RREF:
 		if (reg != 'u')
@@ -1245,36 +1510,37 @@ static unsigned load_r_with(char reg, struct node *r, unsigned off)
 		break;
 	case T_PLUS:
 		/* Special case array/struct */
-		if (cpu_is_09 && can_load_r_simple(r->left, off) &&
+		if (cpu_is_09 && can_load_r_simple(r->left, 0) &&
 			r->right->op == T_CONSTANT) {
-			load_r_with(reg, r->left, off);
+			load_r_with(reg, r->left);
 			return r->right->value;
 		}
 		break;
 	case T_MINUS:
-		if (cpu_is_09 && can_load_r_simple(r->left, off) &&
+		if (cpu_is_09 && can_load_r_simple(r->left, 0) &&
 			r->right->op == T_CONSTANT) {
-			load_r_with(reg, r->left, off);
+			load_r_with(reg, r->left);
 			return -r->right->value;
 		}
 		break;
 	default:
 		error("lxw");
 	}
+	/* Caller does reg tracking for now - review */
 	return 0;
 }
 
-unsigned load_x_with(struct node *r, unsigned off)
+unsigned load_x_with(struct node *r)
 {
-	unsigned rv = load_r_with('x', r, off);
-	invalidate_x();
-	return rv;
+	if (r_holds_node(r_node + R_X, r))
+		return;
+	return load_r_with('x', r);
 }
 
 /* 6809 specific register loading */
-unsigned load_u_with(struct node *r, unsigned off)
+unsigned load_u_with(struct node *r)
 {
-	return load_r_with('u', r, off);
+	return load_r_with('u', r);
 }
 
 /* 6809 we have SUBD and access to lots of things */
@@ -1296,20 +1562,20 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *sop)
 		zop = 1;
 	/* Do byte compare as we know the high one matches */
 	else if (s == 2 && a_valid && (v & 0xFF00) == a_val && r->op == T_CONSTANT) {
-		output("subb #%u", BYTE(v));
+		output("BZsubb #%u", BYTE(v));
 		/* We implicitly did the signed first byte comparison */
 		op = uop;
-	} else if (s == 1 && op8_on_node(r, "sub", 0) == 0)
+	} else if (s == 1 && op8_on_node(r, "BZsub", 0) == 0)
 		return 0;
-	else if (s == 2 && op16d_on_node(r, "sub", "sbc", 0) == 0)
+	/* We can trust the flags off this on 6809 as we have subd */
+	else if (s == 2 && op16d_on_node(r, "DZsub", "sbc", 0) == 0)
 		return 0;
 	if (!zop)
-		output("%s %s", jsr_op, op);
+		output("BZ%s %s", jsr_op, op);
 	else
-		output("%s %s0", jsr_op, op);
+		output("BZ%s %s0", jsr_op, op);
 	n->flags |= ISBOOL;
 	set_a(0);
-	invalidate_b();
 	trackf = stdflags;
 	return 1;
 }
@@ -1348,12 +1614,12 @@ void write_mul(unsigned n)
 			pops++;
 			push_d();
 		}
-		output("lslb");
-		output("rola");
+		output("Blslb");
+		output("Arola");
 		n >>= 1;
 	}
 	while(pops--)
-		output("addd ,s++");
+		output("Daddd ,s++");
 }
 
 unsigned gen_fast_mul(unsigned s, unsigned n)
@@ -1377,10 +1643,8 @@ unsigned gen_fast_mul(unsigned s, unsigned n)
 			invalidate_work();
 			return 1;
 		}
-		output("ldx #%u", n);
-		invalidate_x();
-		output("%s __mulx", jsr_op);
-		invalidate_work();
+		output("Xldx #%u", n);
+		output("D%s __mulx", jsr_op);
 		return 1;
 	} else {
 		unsigned c = 0;
@@ -1408,22 +1672,21 @@ unsigned gen_fast_div(unsigned n, unsigned s, unsigned u)
 		return 0;
 	if (u) {
 		while(n > 1) {
-			output("lsra");
-			output("rorb");
+			output("Alsra");
+			output("Brorb");
 			n >>= 1;
 		}
 	} else {
 		output("tsta");
 		output_nf("bpl X%u", ++label);
-		output("addd #%u", WORD(n - 1));
+		add_d_const(n - 1);
 		outlabel("X%u", label);
 		while(n > 1) {
-			output("asra");
-			output("rorb");
+			output("Aasra");
+			output("Brorb");
 			n >>= 1;
 		}
 	}
-	invalidate_work();
 	return 1;
 }
 
@@ -1460,13 +1723,11 @@ unsigned cmp_op(struct node *n, const char *uop, const char *op)
 		return 0;
 	/* We can do this versus s+ or s++ */
 	if (s == 1)
-		op8_on_tos("sub");
+		op8_on_tos("BZsub");
 	else if (s == 2)
-		op16d_on_tos("sub");
-	output("%s %s", jsr_op, op);
+		op16d_on_tos("DZsub");
+	output("DZ%s %s", jsr_op, op);
 	n->flags |= ISBOOL;
-	trackf = stdflags;
-	invalidate_work();
 	set_a(0);
 	return 1;
 }
@@ -1576,6 +1837,6 @@ void gen_helpclean(struct node *n)
 			adjust_s(get_size(n->left->type), 1);
 		/* C style ops that are ISBOOL didn't set the bool flags */
 		if (n->flags & ISBOOL)
-			output("tstb");
+			output("Ztstb");
 	}
 }
