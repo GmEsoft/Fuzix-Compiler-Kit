@@ -112,6 +112,12 @@ L%1:
 L%2:
 L%1:
 
+# Sillies
+	addd #%1
+	addd #%2
+=
+	addd #%1+%2
+
 # Pop and transfer (this is ok as D is always invalidated
 	ldd ,s++
 	tfr d,x

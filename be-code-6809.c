@@ -182,11 +182,27 @@ void set_d_node_ptr(struct node *n)
 
 unsigned d_holds_node(struct node *n)
 {
-	if (r_holds_node(rnode + R_D, n))
+	if (r_holds_node(rnode + R_D, n)) {
+//		printf(";D was n %04X %04X\n", rnode[R_D].op, WORD(rnode[R_D].value));
 		return 1;
-	if (r_holds_node(rnode + R_DS, n))
+	}
+	if (r_holds_node(rnode + R_DS, n)) {
+//		printf(";DS was n %04X %04X\n", rnode[R_D].op, WORD(rnode[R_D].value));
+		return 1;
+	}
+	return 0;
+}
+
+unsigned d_type_constant(void)
+{
+	if (a_valid && b_valid)
 		return 1;
 	return 0;
+}
+
+unsigned d_const_value(void)
+{
+	return (a_val << 8) | b_val;
 }
 
 void modify_a(uint8_t val)
@@ -314,6 +330,11 @@ void set_ds_node(struct node *n)
 {
 	set_r_node(rnode + R_DS, n);
 	dump_tracking();
+}
+
+void set_ds_node_ptr(struct node *n)
+{
+	set_r_node_ptr(rnode + R_DS, n);
 }
 
 /* Icky so really need to work this back out */
@@ -1221,7 +1242,7 @@ void op16_on_ptr(const char *op, const char *op2, unsigned off)
 }
 
 /* Operations where D can be used on later processors */
-void op16d_on_ptr(const char *op, const char *op2, unsigned off)
+void op16d_on_ptr(const char *op, unsigned off)
 {
 	/* Big endian */
 	output("D%sd %u,x", op, off);
@@ -1269,13 +1290,6 @@ void uniop_on_ptr(register const char *op, register unsigned off,
 	off += size;
 	while(size--)
 		output("%s %u,x", op, --off);
-}
-
-/* Caller is responsible for setting the node ref */
-unsigned make_local_ptr(unsigned off, unsigned rlim)
-{
-	output("Xleax %u,s", off + sp);
-	return 0;
 }
 
 static char *addr_form(register struct node *r, unsigned off, unsigned s)
@@ -1398,7 +1412,7 @@ unsigned op16_on_node(struct node *r, const char *op, const char *op2, unsigned 
 	return 1;
 }
 
-unsigned op16d_on_node(struct node *r, const char *op, const char *op2, unsigned off)
+unsigned op16d_on_node(struct node *r, const char *op, unsigned off)
 {
 	unsigned v = r->value;
 	unsigned store = 0;
@@ -1490,11 +1504,11 @@ unsigned write_op(struct node *r, const char *op, const char *op2, unsigned off)
 	return 0;
 }
 
-unsigned write_opd(struct node *r, const char *op, const char *op2, unsigned off)
+unsigned write_opd(struct node *r, const char *op, unsigned off)
 {
 	unsigned s = get_size(r->type);
 	if (s == 2)
-		return op16d_on_node(r, op, op2, off);
+		return op16d_on_node(r, op, off);
 	if (s == 1)
 		return op8_on_node(r, op, off);
 	return 0;
@@ -1785,15 +1799,17 @@ static unsigned load_r_with(char reg, struct node *r)
 
 unsigned load_x_with(struct node *r)
 {
-	if (r_holds_node(rnode + R_X, r))
+	if (r_holds_node(rnode + R_X, r)) {
+		printf("; X already loaded\n");
 		return 1;
+	}
 	return load_r_with('x', r);
 }
 
 /* 6809 specific register loading */
 unsigned load_u_with(struct node *r)
 {
-	if (r_holds_node(rnode + R_X, r))
+	if (r_holds_node(rnode + R_U, r))
 		return 1;
 	return load_r_with('u', r);
 }
@@ -1823,7 +1839,7 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *sop)
 	} else if (s == 1 && op8_on_node(r, "BZsub", 0) == 0)
 		return 0;
 	/* We can trust the flags off this on 6809 as we have subd */
-	else if (s == 2 && op16d_on_node(r, "DZsub", "sbc", 0) == 0)
+	else if (s == 2 && op16d_on_node(r, "DZsub", 0) == 0)
 		return 0;
 	if (!zop)
 		output("BZ%s %s", jsr_op, op);
@@ -1962,7 +1978,7 @@ void opd_on_ptr(struct node *n, const char *op, const char *op2, unsigned off)
 	if (s == 1)
 		op8_on_ptr(op, off);
 	else if (s == 2)
-		op16d_on_ptr(op, op2, off);
+		op16d_on_ptr(op, off);
 	else
 		op32d_on_ptr(op, op2, off);
 }

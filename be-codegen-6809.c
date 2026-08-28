@@ -408,7 +408,7 @@ unsigned gen_direct(struct node *n)
 			} else if (s == 2) {
 				swap_d_x();
 				load_d_const(v);
-				op16d_on_ptr("st", "st", off);
+				op16d_on_ptr("st", off);
 				return 1;
 			} else if (s == 4) {
 				swap_d_x();
@@ -418,10 +418,6 @@ unsigned gen_direct(struct node *n)
 				return 1;
 			}
 		}
-		/* TODO: for many CPU variants we need a list of things we
-		 * can short load into D without touching X and to use them
-		 * here
-		 */
 		break;
 	case T_PLUS:
 		if (r->op == T_CONSTANT && r->type != FLOAT) {
@@ -436,6 +432,7 @@ unsigned gen_direct(struct node *n)
 				return 1;
 			}
 		}
+		/* FIXME: ARGUMENT also */
 		if (s == 2 && r->op == T_LOCAL) {
 			v = r->value + sp;
 			/* D holds a constant, want to add sp + v */
@@ -444,7 +441,7 @@ unsigned gen_direct(struct node *n)
 			output("DZaddd ,s++");
 			return 1;
 		}
-		return write_opd(r, "add", "adc", 0);
+		return write_opd(r, "add", 0);
 	case T_MINUS:
 		if (r->op == T_CONSTANT && r->type != FLOAT) {
 			if (s == 4)
@@ -461,7 +458,7 @@ unsigned gen_direct(struct node *n)
 				return 1;
 			}
 		}
-		return write_opd(r, "sub", "sbc", 0);
+		return write_opd(r, "sub", 0);
 	case T_AND:
 		if (r->op == T_CONSTANT) {	/* No need to type check - canno tbe float */
 			v = WORD(r->value);
@@ -470,7 +467,7 @@ unsigned gen_direct(struct node *n)
 			/* Check if it makes sense to do long inline. Only
 			   do so if we have Y or the upper half is trivial */
 			if (BYTE(v) != 0xFF) {
-				if (v & 0xFF)
+				if (BYTE(v))
 					output("andb #%u", BYTE(v));
 				else
 					load_b_const(0);
@@ -625,8 +622,8 @@ unsigned gen_uni_direct(struct node *n)
 	case T_LEQ:
 		/* We have a specific optimization case that occurs a lot
 		   *auto = 0, that we can optimize nicely */
-		printf(";LEQ rv %lu nr %u nv %lu snum %u s %u\n",
-			r->value, nr, n->value, n->snum, s);
+		/* printf(";LEQ rv %lu nr %u nv %lu snum %u s %u\n",
+			r->value, nr, n->value, n->snum, s); */
 		if (r->op == T_CONSTANT && r->value == 0 && nr) {
 			if (n->snum == 0 && s == 1) {
 				output("Mclr [%u,s]", WORD(n->value));
@@ -646,6 +643,10 @@ unsigned gen_uni_direct(struct node *n)
 	   result is not then re-used */
 	case T_LSTORE:
 	case T_NSTORE:
+		if (r->op == T_CONSTANT && d_type_constant() &&
+					d_const_value() == r->value)
+			if (write_opd(n, "Mst", 0))
+				return 1;
 		/* Optimizations for constants */
 		if (nr && r->op == T_CONSTANT && r->value == 0) {
 			if (write_uni_op(n, "Mclr", 0))
@@ -666,7 +667,7 @@ unsigned gen_uni_direct(struct node *n)
 
 unsigned do_xptrop(struct node *n, const char *op, unsigned off)
 {
-	unsigned size;
+	unsigned size = get_size(n->type);
 	switch(n->op) {
 	case T_ANDEQ:
 		op_on_ptr(n, "and", off);
@@ -683,19 +684,18 @@ unsigned do_xptrop(struct node *n, const char *op, unsigned off)
 	case T_MINUSEQ:
 		/* We want to subtract D *from* .X. Negate D and add
 		   as this seems the cheapest approach */
-		size = get_size(n->type);
 		if (size == 1) {
 			output("Bnegb");
-			opd_on_ptr(n, "add", "adc", off);
+			opd_on_ptr(n, "Zadd", "adc", off);
 			break;
 		}
 		if (size == 2) {
 			negate_d();
-			opd_on_ptr(n, "add", "adc", off);
+			opd_on_ptr(n, "Zadd", "adc", off);
 			break;
 		} else
 			helper(n, "negate");
-		opd_on_ptr(n, "DMZadd", "adc", off);
+		opd_on_ptr(n, "DZadd", "adc", off);
 		break;
 	case T_STAREQ:
 		/* If we have D we have mul */
@@ -703,7 +703,8 @@ unsigned do_xptrop(struct node *n, const char *op, unsigned off)
 		if (size == 1) {
 			output("Alda %u,x", off);
 			output("ABmul");
-			output("Mstb %u,x", off);
+			output("MZstb %u,x", off);
+			set_ds_node_ptr(n->left);
 			return 1;
 		}
 		/* Fall through */
@@ -719,6 +720,9 @@ unsigned do_xptrop(struct node *n, const char *op, unsigned off)
 	}
 	/* Stuff D back into ,X */
 	opd_on_ptr(n, "st", "st", off);
+	if (size <= 2)
+		trackf = stdflags;
+	set_ds_node_ptr(n->left);
 	return 1;
 }
 
@@ -775,18 +779,18 @@ unsigned write_xsimple(struct node *n, unsigned via_ptr)
 		/* TODO: turn this simple/simple stuff into a tree rewrite */
 		l->op = top;
 		l->type = r->type;
-		write_opd(l, "ld", "ld", off);
+		write_opd(l, "ld", off);
 	}
 	if (op16)
-		write_opd(r, op, op2, 0);
+		write_opd(r, op, 0);
 	else
 		write_op(r, op, op2, 0);
 
 	if (via_ptr)
 		opd_on_ptr(n, "st", "st", off);
 	else
-		write_opd(l, "st", "st", off);
-	set_d_node(l);
+		write_opd(l, "st", off);
+	set_d_node_ptr(l);
 	return 1;
 }
 
@@ -873,9 +877,10 @@ unsigned memop_const(struct node *n, const char *op, unsigned nr, unsigned pre)
 			output("Bldb %s+%u\n", namestr(l->snum), v);
 		sprintf(buf, "BM%s %s+%u", op, namestr(l->snum), v);
 		repeated_op(ct, buf);
-		/* FIXME: can we set the node on this ? */
-		if (pre == 2)
-			output("Bldb %s+%u", namestr(l->snum), v);
+		if (pre == 2) {
+			output("BZldb %s+%u", namestr(l->snum), v);
+			set_ds_node_ptr(l);
+		}
 		if (pre)
 			invalidate_b();
 		return 1;
@@ -887,8 +892,10 @@ unsigned memop_const(struct node *n, const char *op, unsigned nr, unsigned pre)
 		while(ct--)
 			uniop_on_ptr(op, v, 1);
 		invalidate_mem();
-		if (pre == 2)
-			uniop_on_ptr("Bldb", v, 1);
+		if (pre == 2) {
+			uniop_on_ptr("BZldb", v, 1);
+			set_ds_node_ptr(l);
+		}
 		if (pre)
 			invalidate_b();
 		return 1;
@@ -948,11 +955,12 @@ unsigned add_to_node(struct node *n, int sign, int retres)
 		if (l->op == T_ARGUMENT)
 			v += argbase + frame_len;
 		v += sp;
+		/* FIXME: should check if d contains the wanted pointed value */
 		load_d_const(sign * r->value);
 		output("Daddd %u,s", v);
 		output("Mstd %u,s", v);
 		if (retres)
-			set_d_node_ptr(r);
+			set_ds_node_ptr(r);
 		else
 			add_d_const(-sign * r->value);
 		return 1;
@@ -971,36 +979,22 @@ unsigned add_to_node(struct node *n, int sign, int retres)
 		if (!retres)
 			output("puls b");
 		else
-			set_d_node(l);
+			set_ds_node_ptr(l);
 		return 1;
 	}
-	op16d_on_ptr("Dld", "Dld", off);
-	if (!retres)
+	op16d_on_ptr("Dld", off);
+	if (!retres) {
 		push_d();
-
-	add_d_const(sign * r->value);
-	op16d_on_ptr("Mst", "Mst", off);
-	if (!retres)
-		pop_d();
-	invalidate_work();
-	invalidate_mem();
-	if (retres)
-		set_d_node_ptr(l);
-	return 1;
-}
-
-static void gen_lplus(struct node *n, const char *post)
-{
-	/* Expression on the right plus sp plus stack ptr plus n->value */
-	unsigned v = n->value + sp;
-	/* FIXME: should consider lbra */
-	if (v < 256) {
-		output("DMXjsr __lplus%sb", post);
-		output(".byte %u", v);
-	} else {
-		output("DMXjsr __lplus%s", post);
-		output(".word %u", v);
+		sp += 2;
 	}
+	add_d_const(sign * r->value);
+	op16d_on_ptr("DMst", off);
+	if (!retres) {
+		sp -= 2;
+		pop_d();
+	} else
+		set_ds_node_ptr(l);
+	return 1;
 }
 
 /*
@@ -1144,17 +1138,14 @@ unsigned gen_shortcut(struct node *n)
 		/* Our right hand side is the thing to deref. See if we can
 		   get it into X instead */
 		v = n->value;
-		/* Need to look at off handling
-		   TODO: think v + off is all that is needed but for non
-		   6809 that means range checking complications */
 		if (r->op == T_RREF) {
 			/* Want to use U here */
 			switch(s) {
 			case 1:
-				output("Bldb %u,u", v);
+				output("ZBldb %u,u", v);
 				break;
 			case 2:
-				output("Dldd %u,u", v);
+				output("ZDldd %u,u", v);
 				break;
 			case 4:
 				output("Yldy %u,u", v);
@@ -1172,6 +1163,7 @@ unsigned gen_shortcut(struct node *n)
 				load32(v);
 			else
 				opd_on_ptr(n, "ld", "ld", v);
+			/* FIXME: set_d_node_ptr(r); */
 			return 1;
 		}
 		return 0;
@@ -1180,6 +1172,7 @@ unsigned gen_shortcut(struct node *n)
 		/* FIXME: optimise RREF on left as stores via ,u */
 		v = n->value;
 		if (can_load_r_simple(l)) {
+			/* FIXME: !optsize ? */
 			if (r->op == T_CONSTANT && nr && s == 4) {
 				if (r->value == 0) {
 					/* We can optimize thing = 0 for the case
@@ -1196,22 +1189,13 @@ unsigned gen_shortcut(struct node *n)
 				store32(v, nr);
 			else {
 				opd_on_ptr(n, "st", "st", v);
-				/* can we do this .. investigate set_ds_node(l); */
+				/* FIXME: can we do this .. investigate set_ds_node_ptr(l); */
 			}
 			return 1;
 		}
 		if (can_load_d_nox(r) && s < 4) {
-			if (l->op == T_LPLUS) {
-				/* Do the LPLUS expression by hand */
-				codegen_lr(l->right);
-				/* Use the helper to put it in X */
-				gen_lplus(l, "x");
-				/* We no longer have valid tracking in X */
-				invalidate_x();
-			} else {
-				codegen_lr(l);
-				make_x_d();
-			}
+			codegen_lr(l);
+			make_x_d();
 			/* X is now our pointer */
 
 			/* Load D without touching X */
@@ -1223,7 +1207,7 @@ unsigned gen_shortcut(struct node *n)
 					codegen_lr(r);
 				}
 			} else
-				write_opd(r, "ld", "ld", 0);
+				write_opd(r, "ld", 0);
 			invalidate_work();
 
 			/* Store */
@@ -1289,7 +1273,7 @@ unsigned gen_shortcut(struct node *n)
 		codegen_lr(r);
 		/* Try and write it as
 			ldd foo  subd 1,s or similar */
-		if (write_opd(l, "sub", "sbc", 0))
+		if (write_opd(l, "sub", 0))
 			return 1;
 		/* Ok then we have to write it the long way */
 		gen_push(r);
@@ -1422,7 +1406,7 @@ unsigned gen_node(struct node *n)
 			return 1;
 		}
 		if (s == 2) {
-			op16d_on_ptr("ld", "ld", v);
+			op16d_on_ptr("ld", v);
 			set_d_node(n);
 			return 1;
 		}
@@ -1442,7 +1426,7 @@ unsigned gen_node(struct node *n)
 		}
 		if (s == 2) {
 			pop_x();
-			op16d_on_ptr("st", "st", v);
+			op16d_on_ptr("st", v);
 			return 1;
 		}
 		if (s == 4) {
@@ -1473,7 +1457,7 @@ unsigned gen_node(struct node *n)
 			load_y_const(0);
 			/* Now do the op on the word */
 			set_d_node(n);	/* Always works so safe to do ahead */
-			return op16d_on_node(n, "ld", "ld", 0);
+			return op16d_on_node(n, "ld", 0);
 		}
 		/* Fall through */
 	case T_LREF:
@@ -1481,29 +1465,28 @@ unsigned gen_node(struct node *n)
 		/* Don't remove volatile loads */
 		if (d_holds_node(n) && !se)
 			return 1;
-		if (write_opd(n, "ld", "ld", 0)) {
+		if (write_opd(n, "Zld", 0)) {
 			set_d_node(n);
 			return 1;
 		}
 		if (s == 4) {
 			op16y_on_node(n, "ld", 0);
-			op16d_on_node(n, "ld", "ld", 2);
+			op16d_on_node(n, "ld", 2);
 			invalidate_work();
 			return 1;
 		}
 		return 0;
 	case T_LSTORE:
 	case T_NSTORE:
-		printf(";nstore %u\n", s);
-		if (write_opd(n, "ZMst", "ZMst", 0)) {
-			/* FIXME: set_ds_node once done */
+		if (write_opd(n, "ZMst", 0)) {
 			set_ds_node(n);
+			/* ST on 6809 sets flags too */
 			return 1;
 		}
 		if (s == 4) {
 			/* Invalidate here until we track properly TODO */
 			op16y_on_node(n, "YMst", 0);
-			op16d_on_node(n, "Mst", "Mst", 2);
+			op16d_on_node(n, "Mst", 2);
 			return 1;
 		}
 		break;
@@ -1514,10 +1497,12 @@ unsigned gen_node(struct node *n)
 			return 1;
 		tfr_u_d();
 		set_d_node(n);
+		trackf = stdflags;
 		return 1;
 	case T_RSTORE:
 		tfr_d_u();
 		set_d_node(n);
+		trackf = stdflags;
 		return 1;
 	case T_ARGUMENT:
 		if (d_holds_node(n))
@@ -1526,10 +1511,15 @@ unsigned gen_node(struct node *n)
 	case T_LOCAL:
 		if (d_holds_node(n))
 			return 1;
-		make_local_ptr(v, 0);
+		/* Should look if its already in X FIXME: */
+		output("leax %u,s", v + sp);
 		set_x_node(n);
 		/* X is now the value we need */
 		tfr_x_d();
+		/* The leax will set the flags correctly if our working size
+		   is word */
+		if (s == 2)
+			trackf = stdflags;
 		return 1;
 	case T_LDEREF:
 		if (n->snum == 0 && s <= 2) {
@@ -1543,13 +1533,11 @@ unsigned gen_node(struct node *n)
 		}
 		v = n->snum;
 		if (s == 1)
-			op8_on_ptr("Dld", v);
+			op8_on_ptr("ZDld", v);
 		else if (s == 2)
-			op16d_on_ptr("Dld", "Dld", v);
+			op16d_on_ptr("ZDld", v);
 		else
 			load32(v);
-		/* FIXME: z is valid if s == 1or s == && has_d) */
-		invalidate_work();
 		return 1;
 	case T_NDEREF:
 		/* Deref through a name. Only generated for the 6809
@@ -1590,7 +1578,7 @@ unsigned gen_node(struct node *n)
 		if (s == 1)
 			op8_on_ptr("ZMst", n->snum);
 		else if (s == 2)
-			op16d_on_ptr("ZMst", "Mst", n->snum);
+			op16d_on_ptr("ZMst", n->snum);
 		else
 			store32(n->snum, nr);
 		return 1;
@@ -1599,10 +1587,6 @@ unsigned gen_node(struct node *n)
 			output("ZMstb [%s + %u]", namestr(n->snum), v);
 		else
 			output("ZMstd [%s + %u]", namestr(n->snum), v);
-		return 1;
-	case T_LPLUS:	/* 6800 and -Os only */
-		gen_lplus(n, "");
-		invalidate_work();
 		return 1;
 	/* Type casting */
 	case T_CAST:
@@ -1630,6 +1614,11 @@ unsigned gen_node(struct node *n)
 		if (s == 1) {
 			output("Znegb");
 			modify_b(-b_val);
+			return 1;
+		}
+		if (n->type == FLOAT) {
+			/* Invert the top bit of Y */
+			output("Yleay 0x8000,y");
 			return 1;
 		}
 		return 0;

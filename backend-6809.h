@@ -20,7 +20,6 @@
 #define T_REQ		(T_USER+18)	/* *regptr = */
 #define T_RDEREFPLUS	(T_USER+19)	/* *regptr++ */
 #define T_REQPLUS	(T_USER+20)	/* *regptr++ =  */
-#define	T_LPLUS		(T_USER+21)	/* address of local[n] into D and X */
 
 extern unsigned frame_len;	/* Number of bytes of stack frame */
 extern unsigned sp;		/* Stack pointer offset tracking */
@@ -61,7 +60,10 @@ extern void invalidate_mem(void);
 extern void set_d_node(struct node *n);
 extern void set_d_node_ptr(struct node *n);
 extern unsigned d_holds_node(struct node *n);
+extern unsigned d_type_constant(void);
+extern unsigned d_const_value(void);
 extern void set_ds_node(struct node *n);
+extern void set_ds_node_ptr(struct node *n);
 extern void set_x_node(struct node *n);
 extern void modify_a(uint8_t val);
 extern void modify_b(uint8_t val);
@@ -100,18 +102,18 @@ extern void adjust_s(int n, unsigned save_d);
 extern unsigned can_load_d_nox(struct node *n);
 extern void op8_on_ptr(const char *op, unsigned off);
 extern void op16_on_ptr(const char *op, const char *op2, unsigned off);
-extern void op16d_on_ptr(const char *op, const char *op2, unsigned off);
+extern void op16d_on_ptr(const char *op, unsigned off);
 extern void op32d_on_ptr(const char *op, const char *op2, unsigned off);
 extern void load32(unsigned off);
 extern void store32(unsigned off, unsigned nr);
 extern unsigned make_local_ptr(unsigned off, unsigned rlim);
 extern unsigned op8_on_node(struct node *r, const char *op, unsigned off);
 extern unsigned op16_on_node(struct node *r, const char *op, const char *op2, unsigned off);
-extern unsigned op16d_on_node(struct node *r, const char *op, const char *op2, unsigned off);
+extern unsigned op16d_on_node(struct node *r, const char *op, unsigned off);
 extern unsigned op16u_on_node(struct node *r, const char *op, unsigned off);
 extern unsigned op16y_on_node(struct node *r, const char *op, unsigned off);
 extern unsigned write_op(struct node *r, const char *op, const char *op2, unsigned off);
-extern unsigned write_opd(struct node *r, const char *op, const char *op2, unsigned off);
+extern unsigned write_opd(struct node *r, const char *op, unsigned off);
 extern unsigned write_uni_op(struct node *n, const char *op, unsigned off);
 extern void uniop_on_ptr(const char *op, unsigned off, unsigned size);
 extern unsigned write_tos_op(struct node *n, const char *op);
