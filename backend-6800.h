@@ -14,13 +14,7 @@
 #define T_LEQ		(T_USER+10)	/* *local + offset = n */
 #define T_NDEREF	(T_USER+11)	/* *(name + offset) */
 #define T_NEQ		(T_USER+13)	/* *(name + offset) = n */
-#define T_RREF		(T_USER+15)
-#define T_RSTORE	(T_USER+16)
-#define T_RDEREF	(T_USER+17)	/* *regptr */
-#define T_REQ		(T_USER+18)	/* *regptr = */
-#define T_RDEREFPLUS	(T_USER+19)	/* *regptr++ */
-#define T_REQPLUS	(T_USER+20)	/* *regptr++ =  */
-#define	T_LPLUS		(T_USER+21)	/* address of local[n] into D and X */
+#define	T_LPLUS		(T_USER+14)	/* address of local[n] into D and X */
 
 extern unsigned frame_len;	/* Number of bytes of stack frame */
 extern unsigned sp;		/* Stack pointer offset tracking */
@@ -41,13 +35,6 @@ extern unsigned cpu_has_xgdx;	/* XGDX is present */
 extern unsigned cpu_has_abx;	/* ABX is present */
 extern unsigned cpu_has_pshx;	/* Has PSHX PULX */
 extern unsigned cpu_has_y;	/* Has Y register */
-extern unsigned cpu_has_lea;	/* Has LEA. For now 6809 but if we get to HC12... */
-extern unsigned cpu_is_09;	/* Bulding for 6x09 so a bit different */
-extern unsigned cpu_pic;	/* Position independent output (6809 only) */
-
-extern const char *jmp_op;
-extern const char *jsr_op;
-extern const char *pic_op;
 
 extern unsigned label;		/* Used to generate brach labels for code gen
                                    created branches */
@@ -78,8 +65,6 @@ extern void set_b(uint8_t val);
 /* Code generation helpers */
 extern void push_d(void);
 extern void pop_d(void);
-extern void tfr_d_u(void);
-extern void tfr_u_d(void);
 extern unsigned gen_add32(unsigned long v);
 extern void load_d_const(uint16_t n);
 extern void load_a_const(uint8_t n);
@@ -126,7 +111,6 @@ extern unsigned right_shift(struct node *n);
 extern unsigned can_load_r_simple(struct node *r);
 extern unsigned can_load_r_with(struct node *r);
 extern unsigned load_x_with(struct node *r);
-extern unsigned load_u_with(struct node *r);
 extern unsigned cmp_direct(struct node *n, const char *uop, const char *op);
 extern int count_mul_cost(unsigned n);
 extern void write_mul(unsigned n);

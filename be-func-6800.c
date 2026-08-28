@@ -10,20 +10,13 @@
 #include "backend.h"
 #include "backend-6800.h"
 
-unsigned target_ptr = UINT;	/* Until we tackle 6809 large model */
+unsigned target_ptr = UINT;
 
 unsigned cpu_has_d;		/* 16bit ops and 'D' are present */
 unsigned cpu_has_xgdx;		/* XGDX is present */
 unsigned cpu_has_abx;		/* ABX is present */
 unsigned cpu_has_pshx;		/* Has PSHX PULX */
 unsigned cpu_has_y;		/* Has Y register */
-unsigned cpu_has_lea;		/* Has LEA. For now 6809 but if we get to HC12... */
-unsigned cpu_is_09;		/* Bulding for 6x09 so a bit different */
-unsigned cpu_pic;		/* Position independent output (6809 only) */
-
-const char *jmp_op = "jmp";
-const char *jsr_op = "jsr";
-const char *pic_op = "";
 
 /*
  *	State for the current function
@@ -64,7 +57,7 @@ void gen_switch(unsigned n, unsigned type)
 {
 	/* Can't do nicely with output but should be fine */
 	output("ldx #Sw%u", n);
-	printf("\t%s __switch", jmp_op);
+	printf("\tjmp __switch");
 	helper_type(type, 0);
 	putchar('\n');
 }
@@ -143,23 +136,6 @@ void gen_value(unsigned type, unsigned long value)
 void gen_start(void)
 {
 	switch(cpu) {
-	case 6309:
-	case 6809:
-		cpu_pic = cpufeat & 1;
-		cpu_is_09 = 1;
-		cpu_has_d = 1;
-		cpu_has_pshx = 1;
-		cpu_has_y = 1;
-		cpu_has_abx = 1;
-		cpu_has_xgdx = 1;
-		cpu_has_lea = 1;
-		jmp_op = "bra";	/* Maybe a choice will be needed for jmp v bra/lbra ? */
-		if (cpu_pic) {
-			jsr_op = "lbsr";
-			pic_op = ",pcr";
-		} else
-			jsr_op = "jsr";
-		break;
 	case 6811:
 		cpu_has_y = 1;
 	case 6303:
@@ -172,8 +148,7 @@ void gen_start(void)
 	case 6800:
 		break;
 	}
-	/* For the moment. Needs adding to assembler for 6809 v 6309 */
-	if (cpu != 6809 && cpu != 6811)
+	if (cpu != 6811)
 		output(".setcpu %u", cpu);
 	output(".code");
 }
@@ -187,4 +162,3 @@ void gen_tree(struct node *n)
 	codegen_lr(n);
 	puts(";");
 }
-

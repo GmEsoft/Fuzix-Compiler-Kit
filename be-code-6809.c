@@ -6,7 +6,7 @@
 #include <ctype.h>
 #include "compiler.h"
 #include "backend.h"
-#include "backend-6800.h"
+#include "backend-6809.h"
 
 static unsigned op8r_on_node(struct node *r, char reg, const char *op, unsigned off);
 static unsigned can_load_r8_simple(struct node *r);
@@ -445,7 +445,6 @@ void output_nf(const char *p, ...)
 	puts(p);
 	va_end(v);
 	dump_tracking();
-
 }
 
 void output(const char *p, ...)
@@ -459,7 +458,6 @@ void output(const char *p, ...)
 	puts(p);
 	va_end(v);
 	dump_tracking();
-
 }
 
 void outlabel(const char *p, ...)
@@ -530,6 +528,40 @@ void tfr_d_u(void)
 	}
 	output_nf("Utfr d,u");
 	track_copy(R_D, R_U);
+}
+
+void tfr_d_x(void)
+{
+	if (r_holds_node(rnode + R_X, rnode + R_D)) {
+		printf("; tfr d,x removed\n");
+		return;
+	}
+	output_nf("Xtfr d,x");
+	track_copy(R_D, R_X);
+}
+
+void tfr_x_d(void)
+{
+	if (r_holds_node(rnode + R_D, rnode + R_X)) {
+		printf("; tfr d,x removed\n");
+		return;
+	}
+	if (r_holds_node(rnode + R_DS, rnode + R_X)) {
+		printf("; tfr d,x removed\n");
+		return;
+	}
+	output_nf("Xtfr x,d");
+	track_copy(R_X, R_D);
+}
+
+void tfr_d_y(void)
+{
+	if (r_holds_node(rnode + R_Y, rnode + R_D)) {
+		printf("; tfr d,y removed\n");
+		return;
+	}
+	output_nf("Ytfr d,y");
+	track_copy(R_D, R_Y);
 }
 
 void adjust_s(int n, unsigned unused)

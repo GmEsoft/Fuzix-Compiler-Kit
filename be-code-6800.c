@@ -86,9 +86,6 @@ void set_d_node(struct node *n)
 	case T_NSTORE:
 		d_node.op = T_NREF;
 		break;
-	case T_RSTORE:
-		d_node.op = T_RREF;
-		break;
 	case T_NREF:
 	case T_LREF:
 	case T_NAME:
@@ -210,14 +207,16 @@ static const char *outflags(register const char *p)
 	return p;
 }
 
+static char buf[81];
+
 void output_nf(const char *p, ...)
 {
 	va_list v;
 	va_start(v, p);
-	p = outflags(p);
+	vsnprintf(buf, 80, p, v);
+	p = outflags(buf);
 	putchar('\t');
-	vprintf(p, v);
-	putchar('\n');
+	puts(p);
 	va_end(v);
 }
 
@@ -225,11 +224,11 @@ void output(const char *p, ...)
 {
 	va_list v;
 	va_start(v, p);
+	vsnprintf(buf, 80, p, v);
 	trackf = NULL;		/* Flags no longer known */
-	p = outflags(p);
+	p = outflags(buf);
 	putchar('\t');
-	vprintf(p, v);
-	putchar('\n');
+	puts(p);
 	va_end(v);
 }
 
@@ -237,7 +236,6 @@ void outlabel(const char *p, ...)
 {
 	va_list v;
 	va_start(v, p);
-	p = outflags(p);
 	vprintf(p, v);
 	putchar(':');
 	putchar('\n');
@@ -1106,7 +1104,7 @@ static char *addr_form(register struct node *r, unsigned off, unsigned s)
 		return addr;
 	case T_NSTORE:
 	case T_NREF:
-		sprintf(addr, "%s+%u%s", namestr(r->snum), v + off, pic_op);
+		sprintf(addr, "%s+%u", namestr(r->snum), v + off);
 		return addr;
 	default:
 		error("aform");
@@ -1537,7 +1535,7 @@ static unsigned load_r_with(char reg, register struct node *r)
 	case T_CONSTANT:
 	case T_NREF:
 	case T_NAME:
-		output("%cld%c %s", reg, addr_form(r, 0, 2));
+		output("ld%c %s", reg, addr_form(r, 0, 2));
 		break;
 	default:
 		error("lxw");
@@ -1885,7 +1883,7 @@ void gen_helpcall(struct node *n)
 	if (c_style(n))
 		gen_push(n->right);
 	invalidate_all();
-	printf("\t%s __", jsr_op);
+	printf("\tjsr __");
 }
 
 void gen_helptail(struct node *n)

@@ -125,12 +125,8 @@ static unsigned is_simple(struct node *n)
 	if (op == T_ARGUMENT || op == T_LOCAL)
 		return 9;
 	/* Harder as uses X */
-	if (op == T_LREF) {
-		/* 6809 has ,S ops */
-		if (cpu == 6809)
-			return 9;
+	if (op == T_LREF)
 		return 5;
-	}
 	return 0;
 }
 
@@ -245,75 +241,6 @@ struct node *gen_rewrite_node(struct node *n)
 			}
 		}
 	}
-	/* regptr++  The size will always be the true size for ++ and const */
-	if (op == T_DEREF && r->op == T_PLUSPLUS && r->left->op == T_REG &&
-		r->right->value == get_size(n->type))
-	{
-		n->op = T_RDEREFPLUS;
-		n->value = r->right->value;
-		free_node(r->left);
-		free_node(r->right);
-		free_node(r);
-		n->right = NULL;
-		return n;
-	}
-	/* *regptr++ =  again the size will be const and right */
-	/* Must only do this when the size matches the add (could in theory
-	   also do stb ,u++ ?? */
-	if (op == T_EQ && l->op == T_PLUSPLUS && l->left->op == T_REG &&
-		l->left->value == get_size(n->type))
-	{
-		n->op = T_REQPLUS;
-		n->value = l->left->value;
-		free_node(l->left);
-		free_node(l->right);
-		free_node(l);
-		n->left = NULL;
-		return n;
-	}
-	/* *(reg + offset). Optimize this specially as it occurs a lot */
-	if (op == T_DEREF && r->op == T_PLUS && r->left->op == T_RREF &&
-		r->right->op == T_CONSTANT) {
-		n->op = T_RDEREF;
-		n->right = NULL;
-		n->snum = r->right->value;	/* Offset to add */
-		n->value = r->left->value;	/* Register number */
-		free_node(r->right);		/* Discard constant */
-		free_node(r->left);		/* Discard T_REG */
-		free_node(r);			/* Discsrd plus */
-		return n;
-	}
-	/* *regptr */
-	if (op == T_DEREF && r->op == T_RREF) {
-		n->op = T_RDEREF;
-		n->right = NULL;
-		n->snum = 0;
-		n->value = r->value;
-		free_node(r);
-		return n;
-	}
-	/* *(reg + offset) =  Optimize this specially as it occurs a lot */
-	if ((op == T_EQ || op == T_EQPLUS) && l->op == T_PLUS && l->left->op == T_RREF &&
-		l->right->op == T_CONSTANT) {
-		n->op = T_REQ;
-		/* Offset of EQPLUS in n->value, plus right side */
-		n->snum = n->value + l->right->value;	/* Offset to add */
-		n->value = l->left->value;	/* Register number */
-		free_node(l->right);		/* Discard constant */
-		free_node(l->left);		/* Discard T_REG */
-		free_node(l);			/* Discsrd plus */
-		n->left = NULL;
-		return n;
-	}
-	/* *regptr = */
-	if ((op == T_EQ || op == T_EQPLUS) && l->op == T_RREF) {
-		n->op = T_REQ;
-		n->snum = n->value;	/* Copy over the addition */
-		n->value = l->value;	/* Set the register */
-		n->left = NULL;
-		free_node(l);
-		return n;
-	}
 	if ((op == T_DEREF || op == T_DEREFPLUS) && r->op == T_LREF) {
 		/* At this point r->value is the offset for the local */
 		/* n->value is the offset for the ptr load */
@@ -328,18 +255,6 @@ struct node *gen_rewrite_node(struct node *n)
 		squash_left(n, T_LEQ);		/* n->value becomes the local ref */
 		return n;
 	}
-	/* Optimizations for 6809 indirect addressing */
-	if (cpu_is_09 && n->value == 0 && (op == T_DEREF || op == T_DEREFPLUS) && r->op == T_NREF) {
-		/* At this point r->value is the offset for the local */
-		/* n->value is the offset for the ptr load */
-		squash_right(n, T_NDEREF);	/* n->value becomes the local ref */
-		return n;
-	}
-	/* This is trickier with 32bit values so defer that for now */
-	if (cpu_is_09 && nt < CLONG && n->value == 0 && (op == T_EQ || op == T_EQPLUS) && l->op == T_NREF) {
-		squash_left(n, T_NEQ);		/* n->value becomes the local ref */
-		return n;
-	}
 
 	/* Rewrite references into a load operation */
 	/* For now leave long types out of this unless we have a Y register as the @hireg forms
@@ -352,17 +267,8 @@ struct node *gen_rewrite_node(struct node *n)
 				squash_right(n, T_LREF);
 				return n;
 			}
-			if (r->op == T_REG) {
-				squash_right(n, T_RREF);
-				return n;
-			}
 			if (r->op == T_NAME) {
 				squash_right(n, T_NREF);
-				return n;
-			}
-			if (r->op == T_RREF) {
-				squash_right(n, T_RDEREF);
-				n->snum = 0;
 				return n;
 			}
 		}
@@ -375,10 +281,6 @@ struct node *gen_rewrite_node(struct node *n)
 				if (l->op == T_ARGUMENT)
 					l->value += argbase + frame_len;
 				squash_left(n, T_LSTORE);
-				return n;
-			}
-			if (l->op == T_REG) {
-				squash_left(n, T_RSTORE);
 				return n;
 			}
 		}
@@ -479,13 +381,6 @@ unsigned gen_direct(struct node *n)
 		}
 		if (s == 2 && r->op == T_LOCAL) {
 			v = r->value + sp;
-			if (cpu_is_09) {
-				/* D holds a constant, want to add sp + v */
-				output("Xleax %u,s", v);
-				output("pshs x");
-				output("DZaddd ,s++");
-				return 1;
-			}
 			v++;
 			output("sts @tmp");
 			if (cpu_has_d) {
@@ -699,14 +594,6 @@ unsigned gen_uni_direct(struct node *n)
 		printf(";LEQ rv %lu nr %u nv %lu snum %u s %u\n",
 			r->value, nr, n->value, n->snum, s);
 		if (r->op == T_CONSTANT && r->value == 0 && nr) {
-			if (cpu_is_09 && n->snum == 0 && s == 1) {
-				output("Mclr [%u,s]", WORD(n->value));
-				return 1;
-			}
-			/* For 6809 better to use other approaches */
-			if (cpu_is_09)
-				return 0;
-
 			/* Offset of pointer in local */
 			/* snum is the local offset, value the data offset */
 			off = make_local_ptr(n->value, 256 - s);
@@ -796,14 +683,11 @@ unsigned do_xptrop(struct node *n, const char *op, unsigned off)
 	   shift prob not */
 	default:
 		/* For the cases we can't inline we may have to adjust X because
-		   we can't propogate the offset nicely into the helper. On 6809 this
-		   is easy, on 6800 it's ugly and we should have a version of the helper
-		   that adds a const then falls into the main implementation */
+		   we can't propogate the offset nicely into the helper. On 6800
+		   it's ugly and we should have a version of the helper that adds a
+		   const then falls into the main implementation */
 		if (off) {
-			/* FIXME: Should this be part of a generic add_x_const */
-			if (cpu_has_lea)
-				add_x_const(off);
-			else  if (cpu_has_xgdx) {
+			if (cpu_has_xgdx) {
 				swap_d_x();
 				add_d_const(off);
 				swap_d_x();
@@ -894,8 +778,6 @@ unsigned write_xsimple(struct node *n, unsigned via_ptr)
 	return 1;
 }
 
-/* TODO: 6809 could index locals via S so if n->left is LOCAL or
-   ARGUMENT we can special case it */
 unsigned do_xeqop(struct node *n, const char *op)
 {
 	unsigned off;
@@ -945,9 +827,7 @@ unsigned do_stkeqop(struct node *n, const char *op)
 {
 	if (n->type == FLOAT)
 		return 0;
-	if (cpu_is_09)
-		output_nf("Xpuls x");
-	else if (cpu_has_pshx)
+	if (cpu_has_pshx)
 		output_nf("Xpulx");
 	else {
 		/** Fun fun. Fake pulx on a 6800 */
@@ -1042,11 +922,7 @@ unsigned memop_shift(struct node *n, const char *op, const char *opu)
 		v += argbase + frame_len;
 	case T_LOCAL:
 		/* No ,x forms so cannot do locals */
-		if (!cpu_is_09)
-			return 0;
-		sprintf(buf, "M%s %u,s", op, v + sp);
-		repeated_op(rv, buf);
-		return 1;
+		return 0;
 	}
 	return 0;
 }
@@ -1056,27 +932,11 @@ unsigned add_to_node(struct node *n, int sign, int retres)
 {
 	struct node *r = n->right;
 	struct node *l = n->left;
-	unsigned v = l->value;
 	unsigned s = get_size(n->type);
 	unsigned off;
 
 	if (s > 2 || r->op != T_CONSTANT)
 		return 0;
-	if (cpu_is_09) {
-		if (l->op == T_ARGUMENT || l->op == T_LOCAL) {
-			if (l->op == T_ARGUMENT)
-				v += argbase + frame_len;
-			v += sp;
-			load_d_const(sign * r->value);
-			output("Daddd %u,s", v);
-			output("Mstd %u,s", v);
-			if (retres)
-				set_d_node_ptr(r);
-			else
-				add_d_const(-sign * r->value);
-			return 1;
-		}
-	}
 	/* It's marginal whether we should go via X or not */
 	if (!can_load_r_with(l))
 		return 0;
@@ -1084,20 +944,12 @@ unsigned add_to_node(struct node *n, int sign, int retres)
 	if (s == 1) {
 		op8_on_ptr("Bld", off);
 		/* Need to clean up the B stuff */
-		if (!retres) {
-			if (cpu_is_09)
-				output_nf("pshs b");
-			else
-				output_nf("pshb");
-		}
+		if (!retres)
+			output_nf("pshb");
 		add_b_const(sign * r->value);
 		op8_on_ptr("MZst", off);
-		if (!retres) {
-			if (cpu_is_09)
-				output("puls b");
-			else
-				output("pulb");
-		}
+		if (!retres)
+			output("pulb");
 		if (retres)
 			set_d_node(l);
 		return 1;
@@ -1120,10 +972,7 @@ unsigned add_to_node(struct node *n, int sign, int retres)
 static void gen_lplus(struct node *n, const char *post)
 {
 	/* Expression on the right plus sp plus stack ptr plus n->value */
-	unsigned v = n->value + sp;
-	if (!cpu_is_09)
-		++v;
-	/* FIXME: should consider lbra */
+	unsigned v = n->value + sp + 1 ;
 	if (v < 256) {
 		output("DMXjsr __lplus%sb", post);
 		output(".byte %u", v);
@@ -1163,6 +1012,7 @@ unsigned gen_shortcut(struct node *n)
 		if (can_load_r_with(r))
 			v = load_x_with(r);
 		else {
+			/* TODO: can avoid push if no args */
 			sp += 2;
 			push_d();
 			codegen_lr(r);
@@ -1178,86 +1028,10 @@ unsigned gen_shortcut(struct node *n)
 
 	if (n->op == T_CALLNAME) {
 		gen_fcall(l, n->value);
-		output("%s %s", jsr_op, namestr(n->snum));
+		output("jsr %s", namestr(n->snum));
 		invalidate_all();
 		return 1;
 	}
-
-	/* Handle operations that are of the form (OP (REG) (thing)) as we can't really
-	   talk about 'address' of a register variable for 6809 */
-	if (l && l->op == T_REG && cpu_is_09) {
-		v = r->value;
-		switch(n->op) {
-		case T_PLUSPLUS:
-			if (!nr)
-				tfr_u_d();
-			/* add_u_const ?? TODO */
-			output_nf("Uleau %u,u", v);
-			return 1;
-		case T_PLUSEQ:
-			if (r->op == T_CONSTANT)
-				output_nf("leau %u,u", v);
-			else {
-				codegen_lr(r);
-				output_nf("leau d,u");
-			}
-			if (!nr)
-				tfr_u_d();
-			return 1;
-		case T_MINUSMINUS:
-			if (!nr)
-				tfr_u_d();
-			output_nf("leau -%u,u", v);
-			return 1;
-		case T_MINUSEQ:
-			if (r->op == T_CONSTANT)
-				output_nf("leau -%u,u", v);
-			else {
-				codegen_lr(r);
-				negate_d();
-				output_nf("leau d,u");
-			}
-			if (!nr)
-				tfr_u_d();
-			return 1;
-		case T_STAREQ:
-			/* TODO: fast mul forms */
-			codegen_lr(r);
-			helper(n, "regmul");
-			return 1;
-		case T_SLASHEQ:
-			/* TODO: short forms */
-			codegen_lr(r);
-			helper_s(n, "regdiv");
-			return 1;
-		case T_PERCENTEQ:
-			codegen_lr(r);
-			helper_s(n, "regmod");
-			return 1;
-		case T_SHLEQ:
-			codegen_lr(r);
-			helper(n, "reglsl");
-			return 1;
-		case T_SHREQ:
-			codegen_lr(r);
-			helper_s(n, "regshr");
-			return 1;
-		/* These don't trash other regs about */
-		case T_ANDEQ:
-			codegen_lr(r);
-			output("D%s __regand", jsr_op);
-			return 1;
-		case T_OREQ:
-			codegen_lr(r);
-			output("D%s __regor", jsr_op);
-			return 1;
-		case T_HATEQ:
-			codegen_lr(r);
-			output("D%s __regxor", jsr_op);
-			return 1;
-		}
-	}
-
 	switch(n->op) {
 	case T_COMMA:
 		/* The comma operator discards the result of the left side,
@@ -1277,24 +1051,6 @@ unsigned gen_shortcut(struct node *n)
 		/* Need to look at off handling
 		   TODO: think v + off is all that is needed but for non
 		   6809 that means range checking complications */
-		if (r->op == T_RREF) {
-			/* Want to use U here */
-			switch(s) {
-			case 1:
-				output("Bldb %u,u", v);
-				break;
-			case 2:
-				output("Dldd %u,u", v);
-				break;
-			case 4:
-				output("Yldy %u,u", v);
-				output("Dldd %u,u", v + 2);
-				break;
-			default:
-				error("d+");
-			}
-			return 1;
-		}
 		if (can_load_r_simple(r)) {
 			v += load_x_with(r);
 			invalidate_work();
@@ -1334,10 +1090,9 @@ unsigned gen_shortcut(struct node *n)
 			invalidate_mem();
 			if (s == 4)
 				store32(v, nr);
-			else {
+			else
 				opd_on_ptr(n, "st", "st", v);
 				/* can we do this .. investigate set_ds_node(l); */
-			}
 			return 1;
 		}
 		if (can_load_d_nox(r) && s < 4) {
@@ -1359,9 +1114,8 @@ unsigned gen_shortcut(struct node *n)
 				if (r->value == 0 && nr) {	/* Special case */
 					uniop_on_ptr("clr", 0, s);
 					return 1;
-				} else {
+				} else
 					codegen_lr(r);
-				}
 			} else
 				write_opd(r, "ld", "ld", 0);
 			invalidate_work();
@@ -1419,74 +1173,6 @@ unsigned gen_shortcut(struct node *n)
 		return do_xeqop(n, "xoreq");
 	case T_HATEQ:
 		return do_xeqop(n, "xhateq");
-#if 0
-	/* This won't work as is and requires a rethink	*/
-	/* Thankfully it's only the expression/expression case */
-	case T_MINUS:
-		/* Do it backwards if not a const and on a 6809 */
-		if (r->op == T_CONSTANT || s > 2 || cpu_is_09 == 0)
-			return 0;
-		codegen_lr(r);
-		/* Try and write it as
-			ldd foo  subd 1,s or similar */
-		if (write_opd(l, "sub", "sbc", 0))
-			return 1;
-		/* Ok then we have to write it the long way */
-		gen_push(r);
-		codegen_lr(l);
-		if (s == 1)
-			op8_on_spi("sub");
-		else
-			op16d_on_spi("sub");
-		/* our op takes it back off stack */
-		sp -= get_stack_size(r->type);
-		return 1;
-#endif
-	case T_RSTORE:
-		if (nr && can_load_r_with(r)) {
-			v = load_u_with(r);
-			if (v)
-				output_nf("Uleau %u,u", v);
-			return 1;
-		}
-		codegen_lr(r);
-		tfr_d_u();
-		return 1;
-	case T_REQ:
-		codegen_lr(r);
-		switch(s) {
-		case 4:
-			output("Msty %u,u", n->snum);
-			output("Mstd %u,u", n->snum + 2);
-			return 1;
-		case 2:
-			output("Mstd %u,u", n->snum);
-			return 1;
-		case 1:
-			output("Mstb %u,u", n->snum);
-			return 1;
-		}
-		break;
-	case T_REQPLUS:
-		codegen_lr(r);
-		switch(s) {
-		case 4:
-			output("Msty ,u++");
-			/* Fall through */
-		case 2:
-			output("Mstd ,u++");
-			break;
-		case 1:
-			output("Mstb ,u+");
-			break;
-		}
-		return 1;
-	/* Try and optimise 6809 direct stores of U to local and name */
-	case T_LSTORE:
-	case T_NSTORE:
-		if (r->op == T_RREF && s == 2 && nr)
-			return op16u_on_node(n, "Mst", 0);
-		break;
 	}
 	return 0;
 }
@@ -1515,14 +1201,6 @@ static unsigned gen_cast(struct node *n)
 		return 1;
 	/* Don't do the harder ones */
 	if (!(rt & UNSIGNED)) {
-		if (cpu_is_09) {
-			if (rs == 1 && ls == 2) {
-				output("Dsex");
-				return 1;
-			}
-			/* TODO: 6309 has sexw */
-		}
-
 		if (cpu_has_y) {
 			if (opt && rs == 1 && ls == 2) {
 				load_a_const(0);
@@ -1638,10 +1316,7 @@ unsigned gen_node(struct node *n)
 		/* size 4 varies */
 		if (cpu_has_y) {
 			load_d_const(v);
-			if (cpu_is_09 && (n->value >> 16) == (v & 0xFFFF))
-				output_nf("Ytfr d,y");	/* FIXME: add this as op for tracking ? */
-			else
-				load_y_const(n->value >> 16);
+			load_y_const(n->value >> 16);
 			return 1;
 		}
 		load_d_const(n->value >> 16);
@@ -1715,16 +1390,6 @@ unsigned gen_node(struct node *n)
 		break;
 	/* TODO: clean up so that the node hold and tracking are checked in
 	   called command not here */
-	case T_RREF:
-		if (d_holds_node(n))
-			return 1;
-		tfr_u_d();
-		set_d_node(n);
-		return 1;
-	case T_RSTORE:
-		tfr_d_u();
-		set_d_node(n);
-		return 1;
 	case T_ARGUMENT:
 		if (d_holds_node(n))
 			return 1;
@@ -1744,21 +1409,19 @@ unsigned gen_node(struct node *n)
 		/* The stack offsetting on the non 6809 processors is
 		   different. TSX/TXS add and subtract one but the actual
 		   S register points one byte off from a 6809 so compensate */
-		if (!cpu_is_09) {
-			v++;
-			if (optsize && !cpu_has_d) {
-				/* Try and optimise 6800 cases */
-				v += sp;
-				if (v < 256) {
-					output("DXjsr __local_b");
-					output_nf(".byte %u\n", v);
-				} else {
-					output("DXjsr __local_d");
-					output_nf(".word %u\n", v);
-				}
-				set_d_node(n);
-				return 1;
+		v++;
+		if (optsize && !cpu_has_d) {
+			/* Try and optimise 6800 cases */
+			v += sp;
+			if (v < 256) {
+				output("DXjsr __local_b");
+				output_nf(".byte %u\n", v);
+			} else {
+				output("DXjsr __local_d");
+				output_nf(".word %u\n", v);
 			}
+			set_d_node(n);
+			return 1;
 		}
 		move_s_d();
 		v += sp;
@@ -1766,23 +1429,11 @@ unsigned gen_node(struct node *n)
 		set_d_node(n);
 		return 1;
 	case T_LDEREF:
-		if (cpu_is_09) {
-			if (n->snum == 0 && s <= 2) {
-				if (s == 1)
-					output("ZBldb [%u,s]", v + sp);
-				else
-					output("ZDldd [%u,s]", v + sp);
-				return 1;
-			} else {
-				output("Xldx %u,s", v + sp);
-			}
-		} else {
-			/* Offset of pointer in local */
-			/* snum is the local offset, value the data offset */
-			off = make_local_ptr(v, 256 - s);
-			/* off,X is now the pointer */
-			output("Xldx %u,x", off);
-		}
+		/* Offset of pointer in local */
+		/* snum is the local offset, value the data offset */
+		off = make_local_ptr(v, 256 - s);
+		/* off,X is now the pointer */
+		output("Xldx %u,x", off);
 		v = n->snum;
 		if (s == 1)
 			op8_on_ptr("Dld", v);
@@ -1801,41 +1452,12 @@ unsigned gen_node(struct node *n)
 		else
 			output("ZDldd [%s + %u]", namestr(n->snum), v);
 		return 1;
-	case T_RDEREF:
-		if (s == 4) {
-			output("Yldy %u,u", n->snum);
-			output("Dldd %u,u\n", n->snum + 2);
-		} else if (s == 2)
-			output("ZDldd %u,u", n->snum);
-		else
-			output("ZBldb %u,u", n->snum);
-		return 1;
-	case T_RDEREFPLUS:
-		if (s == 4) {
-			output("UYldy ,u++");
-			output("UDldd ,u++");
-		} else if (s == 2)
-			output("ZUDldd ,u++");
-		else
-			output("ZUBldb ,u+");
-		return 1;
 	case T_LEQ:
 		/* We probably want some indirecting helpers later */
-		if (cpu_is_09) {
-			if (n->snum == 0 && s <= 2) {
-				if (s == 1)
-					output("ZMstb [%u,s]", v + sp);
-				else
-					output("ZMstd [%u,s]", v + sp);
-				return 1;
-			}
-			output("Xldx %u,s", v + sp);
-		} else {
-			/* Offset of pointer in local */
-			off = make_local_ptr(v, 256 - s);
-			/* off,X is now the pointer */
-			output("Xldx %u,x", off);
-		}
+		/* Offset of pointer in local */
+		off = make_local_ptr(v, 256 - s);
+		/* off,X is now the pointer */
+		output("Xldx %u,x", off);
 		if (s == 1)
 			op8_on_ptr("ZMst", n->snum);
 		else if (s == 2)
@@ -1888,7 +1510,7 @@ unsigned gen_node(struct node *n)
 			return 0;
 		/* This is a special case as we need to order the
 		   operations */
-		if ((cpu_has_d && s <= 2) || cpu_is_09)
+		if (cpu_has_d && s <= 2)
 			return write_tos_opd(n, "add", "adc");
 		/* For 6800 punt to helper */
 		return 0;
