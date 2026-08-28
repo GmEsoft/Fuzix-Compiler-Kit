@@ -494,7 +494,6 @@ unsigned gen_direct(struct node *n)
 				output("Baddb @tmp+1");
 				output("Aadca @tmp");
 			}
-			invalidate_d();
 			add_d_const(v);
 			/* FIXME: method for this */
 			trackf = stdflags;
@@ -731,10 +730,8 @@ unsigned gen_uni_direct(struct node *n)
 	case T_NSTORE:
 		/* Optimizations for constants */
 		if (nr && r->op == T_CONSTANT && r->value == 0) {
-			if (write_uni_op(n, "Mclr", 0)) {
-				invalidate_d();
+			if (write_uni_op(n, "Mclr", 0))
 				return 1;
-			}
 		}
 		return 0;
 	}
@@ -874,7 +871,7 @@ unsigned write_xsimple(struct node *n, unsigned via_ptr)
 	}
 	top = deref_op(l->op);
 	if (via_ptr || top == 0) {
-		off = load_x_with(l, 0);
+		off = load_x_with(l);
 		opd_on_ptr(n, "ld", "ld", off);
 		via_ptr = 1;
 	} else {
@@ -915,17 +912,17 @@ unsigned do_xeqop(struct node *n, const char *op)
 		if (is_simple(l)) {
 			if (write_xsimple(n, 0))
 				return 1;
-		} else if (can_load_r_with(l, 0)) {
+		} else if (can_load_r_with(l)) {
 			if (write_xsimple(n, 1))
 				return 1;
 		}
 	}
-	if (!can_load_r_with(n->left, 0)) {
+	if (!can_load_r_with(l)) {
 		/* Compute the left side and stack it */
-		codegen_lr(n->left);
-		gen_push(n->left);
+		codegen_lr(l);
+		gen_push(l);
 		/* Get D right, then pull the pointer into X */
-		codegen_lr(n->right);
+		codegen_lr(r);
 		pop_x();
 		sp -= 2;	/* Pulling the pointer back off */
 		off = 0;
@@ -934,12 +931,12 @@ unsigned do_xeqop(struct node *n, const char *op)
 		/* Get the value part into AB */
 		codegen_lr(n->right);
 		/* Load X (lval of the eq op) up (doesn't disturb AB) */
-		off = load_x_with(n->left, 0);
+		off = load_x_with(l);
 	}
 	/* Things we can then inline */
 	if (do_xptrop(n, op, off) == 0)
 		error("xptrop");
-	set_d_node_ptr(n->left);
+	set_d_node_ptr(l);
 	return 1;
 }
 
@@ -999,7 +996,7 @@ unsigned memop_const(struct node *n, const char *op, unsigned nr, unsigned pre)
 		return 1;
 	case T_ARGUMENT:
 	case T_LOCAL:
-		v = load_x_with(l, 0);
+		v = load_x_with(l);
 		if (pre == 1)
 			uniop_on_ptr("Bldb", v, 1);
 		while(ct--)
@@ -1081,9 +1078,9 @@ unsigned add_to_node(struct node *n, int sign, int retres)
 		}
 	}
 	/* It's marginal whether we should go via X or not */
-	if (!can_load_r_with(l, 0))
+	if (!can_load_r_with(l))
 		return 0;
-	off = load_x_with(l, 0);
+	off = load_x_with(l);
 	if (s == 1) {
 		op8_on_ptr("Bld", off);
 		/* Need to clean up the B stuff */
@@ -1163,8 +1160,8 @@ unsigned gen_shortcut(struct node *n)
 		/* Generate and stack all the arguments */
 		gen_fcall(l, n->snum);
 		/* Generate the address of the function */
-		if (can_load_r_with(r, 0))
-			v = load_x_with(r, 0);
+		if (can_load_r_with(r))
+			v = load_x_with(r);
 		else {
 			sp += 2;
 			push_d();
@@ -1298,8 +1295,8 @@ unsigned gen_shortcut(struct node *n)
 			}
 			return 1;
 		}
-		if (can_load_r_simple(r, 0)) {
-			v += load_x_with(r, 0);
+		if (can_load_r_simple(r)) {
+			v += load_x_with(r);
 			invalidate_work();
 			if (s == 4)
 				load32(v);
@@ -1312,19 +1309,19 @@ unsigned gen_shortcut(struct node *n)
 	case T_EQPLUS:
 		/* FIXME: optimise RREF on left as stores via ,u */
 		v = n->value;
-		if (can_load_r_simple(l, 0)) {
+		if (can_load_r_simple(l)) {
 			if (r->op == T_CONSTANT && nr && s == 4) {
 				if (r->value == 0) {
 					/* We can optimize thing = 0 for the case
 					   we don't also need the value */
-					v += load_x_with(l, 0);
+					v += load_x_with(l);
 					uniop_on_ptr("Mclr", v, s);
 					return 1;
 				}
 				/* For the processors without Y we can do better. Ideally
 				   we would move to allowing LREF/LSTORE of 32bit but for now */
 				if (!cpu_has_y) {
-					v += load_x_with(l, 0);
+					v += load_x_with(l);
 					load_d_const(r->value);
 					op16d_on_ptr("Mst", "Mst", v + 2);
 					load_d_const(r->value >> 16);
@@ -1333,12 +1330,14 @@ unsigned gen_shortcut(struct node *n)
 				}
 			}
 			codegen_lr(r);
-			v += load_x_with(l, 0);
+			v += load_x_with(l);
 			invalidate_mem();
 			if (s == 4)
 				store32(v, nr);
-			else
+			else {
 				opd_on_ptr(n, "st", "st", v);
+				/* can we do this .. investigate set_ds_node(l); */
+			}
 			return 1;
 		}
 		if (can_load_d_nox(r) && s < 4) {
@@ -1444,8 +1443,8 @@ unsigned gen_shortcut(struct node *n)
 		return 1;
 #endif
 	case T_RSTORE:
-		if (nr && can_load_r_with(r, 0)) {
-			v = load_u_with(r, 0);
+		if (nr && can_load_r_with(r)) {
+			v = load_u_with(r);
 			if (v)
 				output_nf("Uleau %u,u", v);
 			return 1;
@@ -1578,6 +1577,7 @@ unsigned gen_node(struct node *n)
 {
 	unsigned s = get_size(n->type);
 	unsigned nr = n->flags & NORETURN;
+	unsigned se = n->flags & SIDEEFFECT;
 	unsigned v;
 	unsigned off;
 
@@ -1654,6 +1654,7 @@ unsigned gen_node(struct node *n)
 		load_d_const(n->value);
 		return 1;
 	case T_NAME:
+		/* TODO: long tracking */
 		if (s == 4) {
 			if (cpu_has_y)
 				load_y_const(0);
@@ -1672,7 +1673,8 @@ unsigned gen_node(struct node *n)
 		/* Fall through */
 	case T_LREF:
 	case T_NREF:
-		if (d_holds_node(n))
+		/* Don't remove volatile loads */
+		if (d_holds_node(n) && !se)
 			return 1;
 		if (write_opd(n, "ld", "ld", 0)) {
 			set_d_node(n);
@@ -1698,17 +1700,21 @@ unsigned gen_node(struct node *n)
 		return 0;
 	case T_LSTORE:
 	case T_NSTORE:
-//		printf(";nstore %u\n", s);
+		printf(";nstore %u\n", s);
 		if (write_opd(n, "ZMst", "ZMst", 0)) {
-			set_d_node(n);
+			/* FIXME: set_ds_node once done */
+			set_ds_node(n);
 			return 1;
 		}
 		if (s == 4 && cpu_has_y) {
-			op16y_on_node(n, "Mst", 0);
+			/* Invalidate here until we track properly TODO */
+			op16y_on_node(n, "YMst", 0);
 			op16d_on_node(n, "Mst", "Mst", 2);
 			return 1;
 		}
 		break;
+	/* TODO: clean up so that the node hold and tracking are checked in
+	   called command not here */
 	case T_RREF:
 		if (d_holds_node(n))
 			return 1;
@@ -1730,6 +1736,7 @@ unsigned gen_node(struct node *n)
 			return 1;
 		if (cpu_has_xgdx) {
 			make_local_ptr(v, 0);
+			set_x_node(n);
 			/* X is now the value we need */
 			swap_d_x();
 			return 1;
@@ -1862,6 +1869,7 @@ unsigned gen_node(struct node *n)
 		output("comb");
 		modify_b(~b_val);
 		if (s == 1)
+			trackf = stdflags;
 		return 1;
 	case T_NEGATE:
 		if (s == 2) {

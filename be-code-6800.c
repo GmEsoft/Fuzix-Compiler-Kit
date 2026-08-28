@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <ctype.h>
 #include "compiler.h"
 #include "backend.h"
 #include "backend-6800.h"
@@ -22,7 +23,7 @@ uint8_t a_val;
 uint8_t b_val;
 unsigned a_valid;
 unsigned b_valid;
-unsigned d_valid;
+static unsigned d_valid;
 static struct node d_node;
 const char *trackf;
 const char stdflags[] = "neeq";	/* bne true, beq false */
@@ -161,6 +162,15 @@ void set_b(uint8_t val)
 	b_val = val;
 	b_valid = 1;
 	d_valid = 0;
+}
+
+void set_x_node(struct node *n)
+{
+	invalidate_x();	/* For the moment */
+}
+
+void set_ds_node(struct node *n)
+{
 }
 
 static const char *outflags(register const char *p)
@@ -440,15 +450,18 @@ static void argstack(struct node *n)
 		return;
 	}
 	/* This relies upon off 0 and 2 giving the same answer for can_ */
-	if (cpu_has_d && s > 1 && n->op != T_LOCAL && can_load_r_with(n, 0)) {
+	if (cpu_has_d && s > 1 && s <= 2 /* FIXME */ && n->op != T_LOCAL && can_load_r_with(n)) {
 		/* T_LOCAL can end up with an offset and we don't want
 		   an offset are we are not doing a deref */
-		load_x_with(n, 0);
+		load_x_with(n);
 		output_nf("pshx");
+#if 0
+	/* TODO: FIXME */
 		if (s == 4) {
 			load_x_with(n,2);
 			output_nf("pshx");
 		}
+#endif
 		sp += s;
 		return;
 	}
@@ -1102,7 +1115,7 @@ static char *addr_form(register struct node *r, unsigned off, unsigned s)
 }
 
 /* Those with address forms we can directly load */
-unsigned can_load_d_nox(struct node *n, unsigned off)
+unsigned can_load_d_nox(struct node *n)
 {
 	register unsigned op = n->op;
 	if (op == T_CONSTANT || op == T_NAME || op == T_NREF)
@@ -1518,8 +1531,8 @@ static unsigned load_r_with(char reg, register struct node *r)
 		/* Worst case for size is 252 */
 		return make_local_ptr(v, 252);
 	case T_LREF:
-		off = make_local_ptr(v, 252);
-		output("ld%c %u,x", reg, off);
+		v = make_local_ptr(v, 252);
+		output("ld%c %u,x", reg, v);
 		break;
 	case T_CONSTANT:
 	case T_NREF:
@@ -1532,16 +1545,16 @@ static unsigned load_r_with(char reg, register struct node *r)
 	return 0;
 }
 
-unsigned load_x_with(struct node *r, unsigned off)
+unsigned load_x_with(struct node *r)
 {
-	unsigned n = load_r_with('x', r, off);
+	unsigned n = load_r_with('x', r);
 	/* Caller owns tracking */
 	invalidate_x();
 	return n;
 }
 
 /* 6809 specific register loading */
-unsigned load_u_with(struct node *r, unsigned off)
+unsigned load_u_with(struct node *r)
 {
 	error("ureg");
 	return 0;

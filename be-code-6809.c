@@ -3,13 +3,16 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdarg.h>
+#include <ctype.h>
 #include "compiler.h"
 #include "backend.h"
 #include "backend-6800.h"
 
 static unsigned op8r_on_node(struct node *r, char reg, const char *op, unsigned off);
-static unsigned can_load_r8_simple(struct node *r, unsigned off);
+static unsigned can_load_r8_simple(struct node *r);
 static unsigned load_r_with(char reg, struct node *r);
+
+static void dump_tracking(void);
 
 unsigned label;		/* Used to hand out local labels in the form X%u */
 
@@ -37,6 +40,7 @@ const char stdflags[] = "neeq";	/* bne true, beq false */
 void invalidate_all(void)
 {
 	rnode[R_D].op = 0;
+	rnode[R_DS].op = 0;
 	rnode[R_X].op = 0;
 	rnode[R_Y].op = 0;
 	rnode[R_U].op = 0;
@@ -48,7 +52,6 @@ void invalidate_all(void)
    invalidate constant tracking */
 static void inv_d_node(void)
 {
-	d_valid = 0;
 	rnode[R_D].op = 0;
 	rnode[R_DS].op = 0;
 }
@@ -116,8 +119,9 @@ void set_r_node(register struct node *r, struct node *n)
 	case T_RSTORE:
 		r->op = T_RREF;
 		break;
-	case T_NREF:
 	case T_LREF:
+	case T_NREF:
+	case T_RREF:
 	case T_NAME:
 	case T_LOCAL:
 	case T_ARGUMENT:
@@ -166,6 +170,25 @@ unsigned r_holds_node(struct node *r, struct node *n)
 	return 1;
 }
 
+void set_d_node(struct node *n)
+{
+	set_r_node(rnode + R_D, n);
+}
+
+void set_d_node_ptr(struct node *n)
+{
+	set_r_node_ptr(rnode + R_D, n);
+}
+
+unsigned d_holds_node(struct node *n)
+{
+	if (r_holds_node(rnode + R_D, n))
+		return 1;
+	if (r_holds_node(rnode + R_DS, n))
+		return 1;
+	return 0;
+}
+
 void modify_a(uint8_t val)
 {
 	a_val = val;
@@ -190,6 +213,183 @@ void set_b(uint8_t val)
 	b_val = val;
 	b_valid = 1;
 	inv_d_node();
+}
+
+static void set_r_to(unsigned r, uint16_t v)
+{
+	register struct node *rp = rnode + r;
+	if (r == R_D) {
+		set_a(v >> 8);
+		set_b(BYTE(v));
+	}
+	rp->op = T_CONSTANT;
+	rp->value = v;
+	rp->snum = 0;
+}
+
+static void modify_r_by(unsigned r, uint16_t v)
+{
+	register struct node *rp = rnode + r;
+	if (r == R_D) {
+		uint16_t n = (a_val << 8) | b_val;
+		n += v;
+		b_val = BYTE(n);
+		if (a_valid && b_valid)
+			a_val = BYTE(n >> 8);
+	}
+	rp->op = T_CONSTANT;
+	rp->value = v;
+	rp->snum = 0;
+}
+
+/* Make sure the D node properly reflects the A and B tracking state */
+static void sync_d_in(void)
+{
+	/* If the bytes are valid make this a constant mode */
+	if (a_valid && b_valid)
+		set_r_to(R_D, (a_val << 8) | b_val);
+	/* If they are not and it was still marked constant undo it */
+	else if (rnode[R_D].op == T_CONSTANT)
+		rnode[R_D].op = 0;
+}
+
+/* We use this if we have copied data into D from X Y or U and we need
+   to update the A and B tracking. If it's called at other times it will
+   do the wrong thing */
+static void sync_d_out(void)
+{
+	if (rnode[R_D].op == T_CONSTANT) {
+		set_a(rnode[R_D].value >> 8);
+		set_b(rnode[R_D].value);
+	} else if (rnode[R_DS].op == T_CONSTANT) {
+		set_a(rnode[R_DS].value >> 8);
+		set_b(rnode[R_DS].value);
+	} else {
+		a_valid = 0;
+		b_valid = 0;
+	}
+}
+
+static void track_swap(unsigned a, unsigned b)
+{
+	struct node tmp;
+	/* TODO: if we only have values in DS as sources we should use
+	   them, but that needs a bunch of tricky invalidation logic */
+	if (a == R_D || b == R_D)
+		sync_d_in();
+	memcpy(&tmp, rnode + a, sizeof(struct node));
+	memcpy(rnode + a, rnode + b, sizeof(struct node));
+	memcpy(rnode + b, &tmp, sizeof(struct node));
+	sync_d_out();
+	/* If we wrote to D then DS is now invalid */
+	/* We never swap with DS at this point */
+	if (a == R_D || b == R_D)
+		rnode[R_DS].op = 0;
+}
+
+static void track_copy(unsigned a, unsigned b)
+{
+	/* If D is unknown try DS */
+	if (a == R_D && rnode[R_D].op == 0)
+		a = R_DS;
+	/* Ensure the constant state for A B tracking is correct */
+	if (a == R_D || a == R_DS)
+		sync_d_in();
+	memcpy(rnode + b, rnode + a, sizeof(struct node));
+	/* Update constant tracking, and also deal with the fact that
+	   a copy to D invalidates DS */
+	if (b == R_D)
+		rnode[R_DS].op = 0;
+	if (b == R_DS)
+		rnode[R_D].op = 0;
+	sync_d_out();
+}
+
+void set_x_node(struct node *n)
+{
+	set_r_node(rnode + R_X, n);
+}
+
+void set_ds_node(struct node *n)
+{
+	set_r_node(rnode + R_DS, n);
+	dump_tracking();
+}
+
+/* Icky so really need to work this back out */
+static unsigned to_r(char c)
+{
+	if (c == 'd')
+		return R_D;
+	if (c == 'x')
+		return R_X;
+	if (c == 'y')
+		return R_Y;
+	if (c == 'u')
+		return R_U;
+	error("2r");
+	return 0;
+}
+
+static unsigned dump_r(struct node *n, char *r)
+{
+	unsigned v = n->value;
+
+	if (n->op == 0)
+		return 0;
+
+	printf(";%s:", r);
+	switch(n->op) {
+	case T_LOCAL:
+		printf("LOCAL %X ", v);
+		break;
+	case T_ARGUMENT:
+		printf("ARG %X ", v);
+		break;
+	case T_LREF:
+		printf("LREF %X ", v);
+		break;
+	case T_NAME:
+		printf("NAME _%s ", namestr(n->snum));
+		break;
+	case T_NREF:
+		printf("NREF _%s ", namestr(n->snum));
+		break;
+	case T_RREF:
+		printf("RREF");
+		break;
+	default:
+		printf("BAD %04X ", n->op);
+		break;
+	}
+	return 1;
+}
+
+static void dump_tracking(void)
+{
+#ifdef DEBUG_TRACKING
+	unsigned any = 0;
+	if (a_valid) {
+		printf(";A=%02X", a_val);
+		any = 1;
+	}
+	if (b_valid) {
+		printf(";B=%02X", b_val);
+		any = 1;
+	}
+
+	any |= dump_r(rnode + R_D, "D");
+	any |= dump_r(rnode + R_DS, "DS");
+	any |= dump_r(rnode + R_X, "X");
+	any |= dump_r(rnode + R_Y, "Y");
+	any |= dump_r(rnode + R_U, "U");
+	if (trackf) {
+		printf(";F:%s", trackf);
+		any = 1;
+	}
+	if (any)
+		printf("\n");
+#endif
 }
 
 static const char *outflags(register const char *p)
@@ -225,6 +425,7 @@ static const char *outflags(register const char *p)
 		case ' ':
 			break;
 		default:
+			printf("%c", *p);
 			error("ot");
 		}
 		p++;
@@ -232,38 +433,45 @@ static const char *outflags(register const char *p)
 	return p;
 }
 
+static char buf[81];
+
 void output_nf(const char *p, ...)
 {
 	va_list v;
 	va_start(v, p);
-	p = outflags(p);
+	vsnprintf(buf, 80, p, v);
+	p = outflags(buf);
 	putchar('\t');
-	vprintf(p, v);
-	putchar('\n');
+	puts(p);
 	va_end(v);
+	dump_tracking();
+
 }
 
 void output(const char *p, ...)
 {
 	va_list v;
 	va_start(v, p);
+	vsnprintf(buf, 80, p, v);
 	trackf = NULL;		/* Flags no longer known */
-	p = outflags(p);
+	p = outflags(buf);
 	putchar('\t');
-	vprintf(p, v);
-	putchar('\n');
+	puts(p);
 	va_end(v);
+	dump_tracking();
+
 }
 
 void outlabel(const char *p, ...)
 {
 	va_list v;
 	va_start(v, p);
-	p = outflags(p);
 	vprintf(p, v);
 	putchar(':');
 	putchar('\n');
 	va_end(v);
+	dump_tracking();
+
 }
 
 /* Management of function call stacks. This gets a bit hairy as we want
@@ -304,15 +512,24 @@ void pop_d(void)
 	output_nf("Dpuls d");
 }
 
-/* TODO: tracking not invalidate */
 void tfr_u_d(void)
 {
-	output_nf("Dtfr u,d");
+	if (d_holds_node(rnode + R_U)) {
+		printf(";tfr u,d removed\n");
+		return;
+	}
+	output_nf("tfr u,d");
+	track_copy(R_U, R_D);
 }
 
 void tfr_d_u(void)
 {
+	if (r_holds_node(rnode + R_U, rnode + R_D)) {
+		printf("; tfr d,u removed\n");
+		return;
+	}
 	output_nf("Utfr d,u");
+	track_copy(R_D, R_U);
 }
 
 void adjust_s(int n, unsigned unused)
@@ -342,7 +559,7 @@ unsigned gen_add32(unsigned long v)
 	if (l) {
 		add_d_const(l);
 		output_nf("bcc X%u", ++label);
-		output("Yleay 1,y");
+		add_y_const(1);
 		outlabel("X%u", label);
 	}
 	if (h)
@@ -392,38 +609,41 @@ void gen_frame(unsigned size, unsigned aframe, unsigned s1)
 					output_nf("pshs y");
 			}
 			adjust_s(-size, 0);
-			argbase += 2;
-			return;
-		}
-		if (size <= 6)
-			pshframe(size + 2);
-		else {
-			output_nf("pshs u");
-			adjust_s(-size, 0);
+		} else {
+			if (size <= 6)
+				pshframe(size + 2);
+			else {
+				output_nf("pshs u");
+				adjust_s(-size, 0);
+			}
 		}
 		argbase += 2;
-		return;
-	}
-	/* We can do better here in some cases.
-	   TODO:
-	   fall through if s1 == 4 && last push would be y from pshframe
-	   of size + 2 */
-	if (s1) {
-		if (s1 == 1)
-			output_nf("pshs b");
-		else {
-			output_nf("pshs d");
-			if (s1 == 4)
-				output_nf("pshs y");
+	} else {
+		/* We can do better here in some cases.
+		   TODO:
+		   fall through if s1 == 4 && last push would be y from pshframe
+		   of size + 2 */
+		if (s1) {
+			if (s1 == 1)
+				output_nf("pshs b");
+			else {
+				output_nf("pshs d");
+				if (s1 == 4)
+					output_nf("pshs y");
+			}
 		}
+		if (size > 2 && size <= 8)
+			pshframe(size);
+		else
+			adjust_s(-size, 0);
 	}
-	if (size > 2 && size <= 8)
-		pshframe(size);
-	else
-		adjust_s(-size, 0);
-	return;
+	if (s1 < 4) {
+		/* Working holds the top of the stack */
+		rnode[R_D].op = T_LREF;
+		rnode[R_D].value = 0;
+		rnode[R_D].snum = 0;
+	}
 }
-
 
 void gen_epilogue(unsigned size, unsigned argsize)
 {
@@ -611,10 +831,10 @@ static void prep_push(struct node *n)
 	stackop <<= 3;
 	/* Downward we try and assign things to the ideal register */
 	if (s == 1) {
-		if (rused == 0 && can_load_r8_simple(n, 0)) {
+		if (rused == 0 && can_load_r8_simple(n)) {
 			stackop |= USE_A;
 			rused |= RUSED_A;
-		} else if (rused == RUSED_A && can_load_r8_simple(n, 0)) {
+		} else if (rused == RUSED_A && can_load_r8_simple(n)) {
 			stackop |= USE_B;
 			rused |= RUSED_B;
 		} else {
@@ -633,7 +853,7 @@ static void prep_push(struct node *n)
 			*rstk++ = rused | RUSED_U;
 			stackop = 0;
 			rused = 0;
-		} else if (rused == 0 && can_load_r_simple(n, 0) && n->op != T_LOCAL && n->op != T_ARGUMENT) {
+		} else if (rused == 0 && can_load_r_simple(n) && n->op != T_LOCAL && n->op != T_ARGUMENT) {
 			stackop |= USE_D;
 			rused |= RUSED_A|RUSED_B;
 		} else if (can_load_r_with(n) && (rused & (RUSED_X|RUSED_Y)) != (RUSED_X|RUSED_Y)) {
@@ -836,9 +1056,9 @@ void add_d_const(uint16_t n)
 	/* TODO: can do better in terms of obj/offset but not clear it is
 	   that useful */
 
-	d_valid = 0;
+	inv_d_node();
 
-	if (n & 0xFF)
+	if (BYTE(n))
 		output("addd #%u", n);
 	else
 		output("adda #%u", n >> 8);
@@ -904,7 +1124,7 @@ void load_y_const(uint16_t v)
 	set_r_to(R_Y, v);
 }
 
-void load_y_const(uint16_t v)
+void load_u_const(uint16_t v)
 {
 	output("ldu #%u", v);
 	set_r_to(R_U, v);
@@ -936,14 +1156,14 @@ void swap_d_x(void)
 void make_x_d(void)
 {
 	track_copy(R_D, R_X);
-	output_nf("Xtfr d,x");
+	output_nf("tfr d,x");
 }
 
 /* Get X into D (may trash X) */
 void make_d_x(void)
 {
 	track_copy(R_X, R_D);
-	output_nf("Dtfr x,d");
+	output_nf("tfr x,d");
 }
 
 void pop_x(void)
@@ -1019,6 +1239,7 @@ void uniop_on_ptr(register const char *op, register unsigned off,
 		output("%s %u,x", op, --off);
 }
 
+/* Caller is responsible for setting the node ref */
 unsigned make_local_ptr(unsigned off, unsigned rlim)
 {
 	output("Xleax %u,s", off + sp);
@@ -1426,7 +1647,7 @@ unsigned right_shift(struct node *n)
    not harm D in the process. We can make this smarter over time if needed.
    Might be worth passing if we can trash D as it will help make_local_ptr
    later, and will be true for some load cases */
-unsigned can_load_r_simple(struct node *r, unsigned off)
+unsigned can_load_r_simple(struct node *r)
 {
 	switch(r->op) {
 	case T_ARGUMENT:
@@ -1510,14 +1731,14 @@ static unsigned load_r_with(char reg, struct node *r)
 		break;
 	case T_PLUS:
 		/* Special case array/struct */
-		if (cpu_is_09 && can_load_r_simple(r->left, 0) &&
+		if (can_load_r_simple(r->left) &&
 			r->right->op == T_CONSTANT) {
 			load_r_with(reg, r->left);
 			return r->right->value;
 		}
 		break;
 	case T_MINUS:
-		if (cpu_is_09 && can_load_r_simple(r->left, 0) &&
+		if (can_load_r_simple(r->left) &&
 			r->right->op == T_CONSTANT) {
 			load_r_with(reg, r->left);
 			return -r->right->value;
@@ -1532,14 +1753,16 @@ static unsigned load_r_with(char reg, struct node *r)
 
 unsigned load_x_with(struct node *r)
 {
-	if (r_holds_node(r_node + R_X, r))
-		return;
+	if (r_holds_node(rnode + R_X, r))
+		return 1;
 	return load_r_with('x', r);
 }
 
 /* 6809 specific register loading */
 unsigned load_u_with(struct node *r)
 {
+	if (r_holds_node(rnode + R_X, r))
+		return 1;
 	return load_r_with('u', r);
 }
 
