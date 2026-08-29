@@ -125,6 +125,35 @@ static unsigned free_cast(unsigned nt, unsigned rt)
 	return 0;
 }
 
+/* Called on T_CAST for dereference conversion */
+static struct node *shrink_load(struct node *n)
+{
+	register struct node *r = n->right;
+	unsigned s = get_size(n->type);
+	/* Floats and stuff we don't want to mess with */
+	if ((r->type & ~UNSIGNED) != CLONG)
+		return n;
+	/* Can't shrink stuff where we need all of it */
+	if (n->type >= CLONG)
+		return n;
+	if (r->flags & SIDEEFFECT)	/* Volatile */
+		return n;
+	/* Big endian sucks */
+	printf(";shrink sees %04X\n", r->op);
+	/* Turn the reference into the low word directly if we can */
+	if(r->op == T_LREF || r->op == T_NREF ||
+			r->op == T_DEREF || r->op == T_DEREFPLUS)
+		r->value += 4 - s;
+	else if (r->op == T_LDEREF)
+		r->snum += 4 - s;
+	else
+		return n;
+	/* Now fix type */
+	r->type = n->type;
+	free_node(n);
+	return r;
+}
+
 /*
  *	Our chance to do tree rewriting. We don't do much
  *	at this point, but we do rewrite name references and function calls
@@ -144,12 +173,15 @@ struct node *gen_rewrite_node(struct node *n)
 		n->value -= argbase;
 
 	/* Eliminate casts for sign, pointer conversion or same */
-	if (op == T_CAST && cast_fold_safe(r->op)) {
-		if (free_cast(nt, r->type)) {
-			free_node(n);
-			r->type = nt;
-			return r;
+	if (op == T_CAST) {
+		if (cast_fold_safe(r->op)) {
+			if (free_cast(nt, r->type)) {
+				free_node(n);
+				r->type = nt;
+				return r;
+			}
 		}
+		return shrink_load(n);
 	}
 	/* Rewrite function call of a name into a new node so we can
 	   turn it easily into call xyz */
