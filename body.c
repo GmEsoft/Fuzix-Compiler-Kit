@@ -378,7 +378,7 @@ void function_body(unsigned st, unsigned name, unsigned type)
 	unsigned long hrw;
 	register unsigned *p;
 	register unsigned n;
-	unsigned type1 = 0;
+	unsigned type1;
 
 	/* We are using both the ones allocated for locals and those registers */
 	func_flags = arg_flags & F_REGMASK;
@@ -394,8 +394,8 @@ void function_body(unsigned st, unsigned name, unsigned type)
 		func_flags |= F_VOID;
 	}
 	/* Remember type of first argument */
-	else
-		type1 = *p;
+	type1 = *p;
+
 	while(n--) {
 		if (*p++ == ELLIPSIS) {
 			func_flags |= F_VARARG;
