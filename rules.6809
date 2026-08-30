@@ -410,3 +410,14 @@ L%1:
 	ldx %2
 	abx
 
+# Bools when with subd #0 - should optimise this in the compiler later
+# by tracking across blocks
+
+	subd #0
+;
+	bne L%1
+	clra
+	clrb
+=
+	subd #0
+	bne L%1
