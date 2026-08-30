@@ -11,6 +11,7 @@ OBJ =  makebool.o divide.o __div.o __divu.o __xdiveq.o __mul.o \
       __xminusminusl.o __xminuseql.o __xplusplusl.o __xpluseql.o \
       __xminusminus.o __xminusminusc.o __xmuleq.o __xmuleql.o \
       __xplusplusu.o __xplusplusuc.o \
+      __xandequl.o __xhatequl.o __xorequl.o \
       __shll.o __shrl.o __shrul.o \
       __xshleql.o __xshreql.o __xshrequl.o \
       __minusl.o __mull.o divide32x32.o __divul.o __remul.o __divl.o __reml.o \
