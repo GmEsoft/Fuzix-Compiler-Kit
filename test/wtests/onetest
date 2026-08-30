@@ -17,7 +17,7 @@ fcc -m$CPU $OPT -c $b.c
 $LINK -b $LINKOPT -o $b \
 	../testcrt0_$CPU.o cprintf.o $b.o \
 	/opt/fcc/lib/$LIB/lib$LIB.a -m $b.map
-../$EMU -d $b $b.map 2> $b.log
-#rm -f $b.o $b $b.map 
 fcc -m$CPU $OPT -S $b.c
 fcc -m$CPU $OPT -S cprintf.c
+../$EMU -d $b $b.map 2> $b.log
+#rm -f $b.o $b $b.map
