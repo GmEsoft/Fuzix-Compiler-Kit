@@ -15,6 +15,8 @@
 #include "backend.h"
 #include "backend-6809.h"
 
+static char workbuf[32];
+
 /*
  *	Helpers for code generation and tracking
  */
@@ -344,7 +346,10 @@ struct node *gen_rewrite_node(struct node *n)
 			return n;
 		}
 		if (r->op == T_REG) {
+			/* Save the register number in the squash */
+			r->snum = r->value;
 			squash_right(n, T_RREF);
+			n->value = 0;
 			return n;
 		}
 		if (r->op == T_NAME) {
@@ -369,6 +374,8 @@ struct node *gen_rewrite_node(struct node *n)
 			return n;
 		}
 		if (l->op == T_REG) {
+			l->snum = l->value;
+			n->value = 0;
 			squash_left(n, T_RSTORE);
 			return n;
 		}
@@ -430,23 +437,17 @@ unsigned gen_direct(struct node *n)
 		/* If the left side was not simple then try and shortcut the
 		   right side */
 		if (r->op == T_CONSTANT) {
-			if (s == 1) {
-				swap_d_x();
+			swap_d_x();
+			if (s == 1)
 				load_b_const(v);
-				op8_on_ptr("st", off);
-				return 1;
-			} else if (s == 2) {
-				swap_d_x();
+			else if (s == 2)
 				load_d_const(v);
-				op16d_on_ptr("st", off);
-				return 1;
-			} else if (s == 4) {
-				swap_d_x();
+			 else if (s == 4) {
 				load_d_const(v);
 				load_y_const(r->value >> 16);
-				store_via_x(n, off);
-				return 1;
 			}
+			store_via_x(n, off);
+			return 1;
 		}
 		break;
 	case T_PLUS:
@@ -700,6 +701,11 @@ unsigned gen_uni_direct(struct node *n)
 unsigned do_xptrop(struct node *n, const char *op, unsigned off)
 {
 	unsigned size = get_size(n->type);
+	if (size == 4 && optsize) {
+		add_x_const(off);
+		helper_s(n, op);
+		return 1;
+	}
 	switch(n->op) {
 	case T_ANDEQ:
 		op_on_ptr(n, "and", off);
@@ -884,10 +890,22 @@ unsigned do_stkeqop(struct node *n, const char *op)
 /*
  *	Things we can try and do as a direct memory op for bytes
  */
+
+static void memop_reg(char reg, const char *op, unsigned off, struct node *l, unsigned pre, unsigned ct)
+{
+	if (pre == 1)
+		output("Bldb %u,%c", off, reg);
+	sprintf(workbuf, "BM%s %u,%c", op, off, reg);
+	repeated_op(ct, workbuf);
+	if (pre == 2) {
+		output("BZldb %u,%c", off, reg);
+		set_ds_node_ptr(l);
+	}
+}
+
 unsigned memop_const(struct node *n, const char *op, unsigned nr, unsigned pre)
 {
-	char buf[32];
-	struct node *l = n->left;
+	register struct node *l = n->left;
 	unsigned v = l->value;
 	struct node *r = n->right;
 	unsigned ct = r->value;
@@ -895,20 +913,18 @@ unsigned memop_const(struct node *n, const char *op, unsigned nr, unsigned pre)
 	if (r->op != T_CONSTANT)
 		return 0;
 
-	/* The helper has to load x and a value and make a call
-	   so is quite expensive */
-	if (ct > 2 + nr)
-		return 0;
-
 	if (nr)
 		pre = 0;
+
+	if (ct > 2 + nr)
+		return 0;
 
 	switch(l->op) {
 	case T_NAME:
 		if (pre == 1)
 			output("Bldb %s+%u\n", namestr(l->snum), v);
-		sprintf(buf, "BM%s %s+%u", op, namestr(l->snum), v);
-		repeated_op(ct, buf);
+		sprintf(workbuf, "BM%s %s+%u", op, namestr(l->snum), v);
+		repeated_op(ct, workbuf);
 		if (pre == 2) {
 			output("BZldb %s+%u", namestr(l->snum), v);
 			set_ds_node_ptr(l);
@@ -917,19 +933,19 @@ unsigned memop_const(struct node *n, const char *op, unsigned nr, unsigned pre)
 			invalidate_b();
 		return 1;
 	case T_ARGUMENT:
+		v += argbase + frame_len;
 	case T_LOCAL:
-		v = load_x_with(l);
-		if (pre == 1)
-			uniop_on_ptr("Bldb", v, 1);
-		while(ct--)
-			uniop_on_ptr(op, v, 1);
-		invalidate_mem();
-		if (pre == 2) {
-			uniop_on_ptr("BZldb", v, 1);
-			set_ds_node_ptr(l);
-		}
-		if (pre)
-			invalidate_b();
+		v += sp;
+		memop_reg('s', op, v, l, pre, ct);
+		return 1;
+	case T_RREF:
+		memop_reg('u', op, v, l, pre, ct);
+		return 1;
+	}
+	if (can_load_r_with(l)) {
+		/* OK so via X */
+		v += load_x_with(l);
+		memop_reg('x', op, v, l, pre, ct);
 		return 1;
 	}
 	return 0;
@@ -937,7 +953,6 @@ unsigned memop_const(struct node *n, const char *op, unsigned nr, unsigned pre)
 
 unsigned memop_shift(struct node *n, const char *op, const char *opu)
 {
-	char buf[32];
 	unsigned v;
 	unsigned rv;
 	struct node *l = n->left;
@@ -959,14 +974,18 @@ unsigned memop_shift(struct node *n, const char *op, const char *opu)
 		return 0;
 	switch(l->op) {
 	case T_NAME:
-		sprintf(buf, "M%s %s+%u", op, namestr(l->snum), v);
-		repeated_op(rv, buf);
+		sprintf(workbuf, "M%s %s+%u", op, namestr(l->snum), v);
+		repeated_op(rv, workbuf);
 		return 1;
 	case T_ARGUMENT:
 		v += argbase + frame_len;
 	case T_LOCAL:
-		sprintf(buf, "M%s %u,s", op, v + sp);
-		repeated_op(rv, buf);
+		sprintf(workbuf, "M%s %u,s", op, v + sp);
+		repeated_op(rv, workbuf);
+		return 1;
+	case T_RREF:
+		sprintf(workbuf, "M%s %u,u", op, v + sp);
+		repeated_op(rv, workbuf);
 		return 1;
 	}
 	return 0;

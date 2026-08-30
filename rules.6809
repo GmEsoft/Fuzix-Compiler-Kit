@@ -421,3 +421,10 @@ L%1:
 =
 	subd #0
 	bne L%1
+
+	clra
+	subb #%1
+	jsr bool%2
+=
+	subb #%1
+	jsr bool%2
