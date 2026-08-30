@@ -140,7 +140,6 @@ static struct node *shrink_load(struct node *n)
 	if (r->flags & SIDEEFFECT)	/* Volatile */
 		return n;
 	/* Big endian sucks */
-	printf(";shrink sees %04X\n", r->op);
 	/* Turn the reference into the low word directly if we can */
 	if(r->op == T_LREF || r->op == T_NREF ||
 			r->op == T_DEREF || r->op == T_DEREFPLUS)
@@ -184,6 +183,24 @@ struct node *gen_rewrite_node(struct node *n)
 		}
 		return shrink_load(n);
 	}
+	/* It's easier to deal with the == 0 and != 0 cases via bool */
+	/* x == 0 is !x */
+	if (op == T_EQEQ && r->op == T_CONSTANT && r->value == 0) {
+		squash_node(n, r);
+		n->op = T_BANG;
+		n->right = l;
+		n->left = NULL;
+		return n;
+	}
+	/* x != 0 is bool of x */
+	if (op == T_BANGEQ && r->op == T_CONSTANT && r->value == 0) {
+		squash_node(n, r);
+		n->right = l;
+		n->left = NULL;
+		n->op = T_BOOL;
+		return n;
+	}
+
 	/* Rewrite function call of a name into a new node so we can
 	   turn it easily into call xyz */
 	if (op == T_FUNCCALL && r->op == T_NAME && PTR(r->type) == 1) {
@@ -1334,13 +1351,10 @@ unsigned gen_shortcut(struct node *n)
 				   the flags */
 				n->flags |= USECC;
 				set_a(0);
-				output(";Went via the non bool helper");
 			}
 			/* Otherwise just inherit the ISBOOLness and thus flags */
 			n->flags |= ISBOOL | USECC;
 			set_z_flag(0);
-			output_nf(";end of bool via non cc/fixed path %04x f %p(%u)\n",
-				n->flags, trackf, cc_invert);
 		}
 		set_a(0);
 		return 1;
@@ -1375,8 +1389,8 @@ unsigned gen_shortcut(struct node *n)
 			r->flags |= USECC;
 		/* Code that follows requires the actual value of the bool */
 		if (!(n->flags & CCONLY) || (n->flags & CCFIXED)) {
-			output_nf(";ccnot2 nf:%04X ro:%04X rf:%04X\n",
-				n->flags, r->op, r->flags);
+//			output_nf(";ccnot2 nf:%04X ro:%04X rf:%04X\n",
+//				n->flags, r->op, r->flags);
 			/* Parent requires a bool value */
 			if ((r->flags & USECC) && (r->flags & CCONLY) && !(r->flags & ISBOOL)) {
 				output("%s __cctonot", jsr_op);
@@ -1389,9 +1403,14 @@ unsigned gen_shortcut(struct node *n)
 				set_z_flag(0);
 			}
 		} else {
-			boolify_cc(n, s);
-			/* Z is now the inverted test we need */
-			cc_invert = 1;
+			if (r->flags & USECC) {
+				/* Do we need to check anything here */
+				cc_invert ^= 1;
+			} else {
+				boolify_cc(n, s);
+				/* Z is now the inverted test we need */
+				cc_invert = 1;
+			}
 			n->flags |= USECC;
 		}
 		return 1;
