@@ -604,8 +604,10 @@ void load_b_const(register uint8_t n)
 	d_valid = 0;
 }
 
-void add_d_const(register uint16_t n)
+void add_d_const(uint16_t n)
 {
+	register uint_fast8_t hi = BYTE(n >> 8);
+	register uint_fast8_t lo = BYTE(n);
 	if (n == 0)
 		return;
 
@@ -614,20 +616,20 @@ void add_d_const(register uint16_t n)
 
 	d_valid = 0;
 
-	if (cpu_has_d && (n & 0xFF))
+	if (cpu_has_d && lo)
 		output("addd #%u\n", n);
 	else {
-		if (n & 0xFF) {
-			output("addb #%u\n", n & 0xFF);
-			output("adca #%u\n", n >> 8);
+		if (lo) {
+			output("addb #%u\n", lo);
+			output("adca #%u\n", hi);
 		} else
-			output("adda #%u\n", n >> 8);
+			output("adda #%u\n", hi);
 	}
-	if (b_val + (n & 0xFF) < b_val)
-		a_val += (n >> 8) + 1;
+	if (BYTE(b_val + lo) < b_val)
+		a_val += hi + 1;
 	else
-		a_val += (n >> 8);
-	b_val += (n & 0xFF);
+		a_val += hi;
+	b_val += lo;
 }
 
 void add_b_const(register uint8_t n)
