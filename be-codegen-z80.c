@@ -443,6 +443,7 @@ static unsigned gen_compc(const char *op, register struct node *n,
 			if (s == 1) {
 				printf("\tld a,0x%x\n", (unsigned)r->value & 0xFF);
 				printf("\tcp l\n");
+				/* ?? USECC ?? */
 				return 1;
 			}
 		}

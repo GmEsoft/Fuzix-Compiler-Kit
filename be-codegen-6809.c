@@ -15,7 +15,6 @@
 #include "backend.h"
 #include "backend-6809.h"
 
-
 /*
  *	Helpers for code generation and tracking
  */
@@ -480,13 +479,13 @@ unsigned gen_direct(struct node *n)
 				return gen_add32(-r->value);
 			if (s == 2) {
 				add_d_const(-r->value);
-				trackf = stdflags;
+				set_z_flag(0);
 				return 1;
 			}
 			if (s == 1) {
 				add_b_const(-r->value);
 				b_val -= r->value;
-				trackf = stdflags;
+				set_z_flag(0);
 				return 1;
 			}
 		}
@@ -515,7 +514,7 @@ unsigned gen_direct(struct node *n)
 				}
 				modify_a(a_val & v);
 			} else
-				trackf = stdflags;
+				set_z_flag(0);
 			if (s == 4) {
 				if (hv == 0x0000)
 					load_y_const(0);
@@ -552,7 +551,7 @@ unsigned gen_direct(struct node *n)
 					output("ora #%u", v);
 				modify_a(a_val | v);
 			} else
-				trackf = stdflags;
+				set_z_flag(0);
 
 			if (s == 4) {
 				if (hv == 0xFFFF)
@@ -587,7 +586,7 @@ unsigned gen_direct(struct node *n)
 					output("eora #%u", v);
 				modify_a(a_val ^ v);
 			} else
-				trackf = stdflags;
+				set_z_flag(0);
 			if (s == 4) {
 				if (hv) {
 					swap_d_y();
@@ -611,17 +610,17 @@ unsigned gen_direct(struct node *n)
 	case T_GTGT:
 		return right_shift(n);
 	case T_EQEQ:
-		return cmp_direct(n, "booleq", "booleq");
+		return cmp_direct(n, "booleq", "booleq", 1);
 	case T_BANGEQ:
-		return cmp_direct(n, "boolne", "boolne");
+		return cmp_direct(n, "boolne", "boolne", 2);
 	case T_LT:
-		return cmp_direct(n, "boolult", "boollt");
+		return cmp_direct(n, "boolult", "boollt", 0);
 	case T_GT:
-		return cmp_direct(n, "boolugt", "boolgt");
+		return cmp_direct(n, "boolugt", "boolgt", 0);
 	case T_LTEQ:
-		return cmp_direct(n, "boolule", "boolle");
+		return cmp_direct(n, "boolule", "boolle", 0);
 	case T_GTEQ:
-		return cmp_direct(n, "booluge", "boolge");
+		return cmp_direct(n, "booluge", "boolge", 0);
 	case T_SLASH:
 		if (r->op == T_CONSTANT) {
 			if (s <= 2 && gen_fast_div(s, r->value, n->type))
@@ -677,8 +676,10 @@ unsigned gen_uni_direct(struct node *n)
 	case T_NSTORE:
 		if (r->op == T_CONSTANT && d_type_constant() &&
 					d_const_value() == r->value)
-			if (write_opd(n, "Mst", 0))
+			if (write_opd(n, "Mst", 0)) {
+				set_ds_node(n);
 				return 1;
+			}
 		/* Optimizations for constants */
 		if (nr && r->op == T_CONSTANT && r->value == 0) {
 			if (write_uni_op(n, "Mclr", 0))
@@ -753,7 +754,7 @@ unsigned do_xptrop(struct node *n, const char *op, unsigned off)
 	/* Stuff D back into ,X */
 	opd_on_ptr(n, "st", "st", off);
 	if (size <= 2)
-		trackf = stdflags;
+		set_z_flag(0);
 	set_ds_node_ptr(n->left);
 	return 1;
 }
@@ -1029,6 +1030,88 @@ unsigned add_to_node(struct node *n, int sign, int retres)
 	return 1;
 }
 
+static unsigned is_ccdown(struct node *n)
+{
+	register unsigned op = n->op;
+	if (op == T_ANDAND || op == T_OROR)
+		return 1;
+	if (op == T_BOOL)
+		return 1;
+	if (op == T_BANG && !(n->flags & CCFIXED))
+		return 1;
+	return 0;
+}
+
+/* Operators that we known to handle as CCONLY if possible */
+static unsigned is_cconly(struct node *n)
+{
+	register unsigned op = n->op;
+	if (op == T_ANDAND || op == T_OROR || op == T_BOOL)
+		return 1;
+	/* integer and byte sized compares via flags */
+	if ((op == T_EQEQ || op == T_BANGEQ) && n->right->type < CLONG)
+		return 1;
+	/* Inverting flags has limits */
+	if (op == T_BANG && !(n->flags & CCFIXED))
+		return 1;
+	return 0;
+}
+
+/*
+ *	Try and push CCONLY down through the tree
+ */
+static void propogate_cconly(register struct node *n)
+{
+	register struct node *l, *r;
+
+	/* Only do this for nodes that are CCONLY. For example if we hit
+	   an EQ (assign) then whilst the result of the assign may be
+	   CC only, the subtree of the assignment is most definitely not */
+	if (!is_cconly(n) && !(n->flags & CCONLY))
+		return;
+
+	l = n->left;
+	r = n->right;
+
+	n->flags |= CCONLY;
+	/* Deal with the CCFIXED limitations for now */
+	if (n->flags & CCFIXED) {
+		if (l)
+			l->flags |= CCFIXED;
+		if (r)
+			r->flags |= CCFIXED;
+	}
+	// printf(";made cconly %x %04X\n", n->op, n->flags);
+	/* Are we a node that can CCONLY downwards */
+	if (is_ccdown(n)) {
+		// printf(";ccdown of %x L\n", n->op);
+		if (l)
+			propogate_cconly(l);
+		// printf(";ccdown cont %x R\n", n->op);
+		if (r)
+			propogate_cconly(r);
+		// printf(";ccdown done %x\n", n->op);
+	}
+}
+
+/* Turn something boolean for flags */
+
+static void boolify_cc(struct node *n, unsigned s)
+{
+	if (s > 2) {
+		helper(n, "bool");
+		set_a(0);
+		n->flags |= ISBOOL;
+	} else if (s == 2)
+		output("DZsubd #0");
+	else
+		output("Ztstb");
+	n->flags |= USECC;
+	if (n->right->flags & ISBOOL)
+		n->flags |= ISBOOL;
+	set_z_flag(0);
+}
+
 /*
  *	Allow the code generator to shortcut trees it knows
  */
@@ -1052,6 +1135,13 @@ unsigned gen_shortcut(struct node *n)
 	if (n->op == T_ARGCOMMA)
 		error("a,");
 
+	/* Walk the subtree if we are condition code dependent and try and
+	 * propogate that as far into the tree as we can */
+	if (n->flags & CCONLY)
+		propogate_cconly(n);
+
+	/* Function calls we want to parse the argument subtree ourselves
+	   to optimise push handling */
 	if (n->op == T_FUNCCALL) {
 		/* Generate and stack all the arguments */
 		gen_fcall(l, n->snum);
@@ -1069,6 +1159,7 @@ unsigned gen_shortcut(struct node *n)
 		}
 		output("jsr %d,x", v);
 		invalidate_all();
+		trackf = NULL;
 		return 1;
 	}
 
@@ -1076,6 +1167,7 @@ unsigned gen_shortcut(struct node *n)
 		gen_fcall(l, n->value);
 		output("%s %s", jsr_op, namestr(n->snum));
 		invalidate_all();
+		trackf = NULL;
 		return 1;
 	}
 
@@ -1165,6 +1257,127 @@ unsigned gen_shortcut(struct node *n)
 		r->flags |= nr;
 		codegen_lr(r);
 		return 1;
+	case T_BOOL:
+		/* Logic via jumping always uses CC in our case */
+		if (r->op == T_ANDAND || r->op == T_OROR)
+			r->flags |= USECC;
+		/* We cannot tell in advance what we can use flags on to
+		   shortcut a boolean operator because it's down to what
+		   happens to end up in the flags registers. Instead we
+		   generate the subtree and take a look */
+		codegen_lr(r);
+		/* The thing to bool is USECC but we are not. This should not happen */
+		if (!(n->flags & CCONLY) && (r->flags & USECC) && !(r->flags & ISBOOL)) {
+			output_nf(";BOTCH %04X:%04X", r->op, r->flags);
+			output("%s __cctobool", jsr_op);
+			set_a(0);
+			set_z_flag(0);
+			n->flags |= ISBOOL | USECC;
+			return 1;
+		}
+		/* If the previous operator was boolean but did not use
+		   CC flags then it's required to have set them for BEQ/BNE
+		   as usual. If it was USECC then don't touch as they
+		   may have been inverted. Should never happen. */
+		if ((r->flags & ISBOOL) && !(r->flags & USECC)) {
+			set_z_flag(0);
+			r->flags |= USECC;
+		}
+		/* Opportunistic flag case */
+		/* In the odd cases that the Z flag is in passing set the way
+		   we need then treat it as if we had planned the event */
+		if (!(r->flags & USECC) && trackf == stdflags) {
+			/* TODO: review || cc_invert and ditto on tidying BANGEQ */
+			if (!(n->flags & CCFIXED) || cc_invert)
+				r->flags |= USECC;
+		}
+		/* We want condition codes, we currently have the flag
+		   correct so do nothing but mark us as USECC in turn */
+		if ((n->flags & CCONLY) && (r->flags & USECC)) {
+			n->flags |= USECC;
+			/* Inherit the bool flag as well as USECC */
+			if (r->flags & ISBOOL)
+				n->flags |= ISBOOL;
+			return 1;
+		}
+		/* Do the actual conversion ourselves */
+		s = get_size(r->type);
+		/* If we can do a quick conversion from the bool test to
+		   Z flag do so, but remember this is reversed so we can't
+		   play games if CCFIXED is set */
+		if ((n->flags & CCONLY) && !(n->flags & CCFIXED))
+			boolify_cc(n, s);
+		else {
+			/* Either we need the value or it's harder */
+			/* Complex cases - long and float go to helpers */
+			if (!(r->flags & ISBOOL)) {
+				helper(n, "bool");
+				/* Helper made the output bool and set
+				   the flags */
+				n->flags |= USECC;
+				set_a(0);
+				output(";Went via the non bool helper");
+			}
+			/* Otherwise just inherit the ISBOOLness and thus flags */
+			n->flags |= ISBOOL | USECC;
+			set_z_flag(0);
+			output_nf(";end of bool via non cc/fixed path %04x f %p(%u)\n",
+				n->flags, trackf, cc_invert);
+		}
+		set_a(0);
+		return 1;
+	case T_BANG:
+		/* This is actually a bit easier than BOOL because the
+		   Z flag reflects the truth as expected for other cases.
+		   So n == 0, sets Z and is thus true */
+		/* Logic via jumping always uses CC in our case */
+		if (r->op == T_ANDAND || r->op == T_OROR)
+			r->flags |= USECC;
+		/* Same as with BOOL */
+		codegen_lr(r);
+		/* Flags hold the state already and we can use condition
+		   codes. This means we can probably invert the flag logic
+		   but there are fringe cases that would need us to rework &&
+		   and || in backend.c */
+		if ((n->flags & CCONLY) && (r->flags & USECC)) {
+			/* Can't just flip flag */
+			if ((n->flags & CCFIXED) && !(r->flags & ISBOOL)) {
+				output("%s __cctonot", jsr_op);
+				n->flags |= ISBOOL;
+				set_a(0);
+				return 1;
+			}
+			/* Easy usual case */
+			cc_invert ^= 1;
+			n->flags |= USECC;
+			return 1;
+		}
+		/* Opportunistic flag case */
+		if (trackf == stdflags && !cc_invert)
+			r->flags |= USECC;
+		/* Code that follows requires the actual value of the bool */
+		if (!(n->flags & CCONLY) || (n->flags & CCFIXED)) {
+			output_nf(";ccnot2 nf:%04X ro:%04X rf:%04X\n",
+				n->flags, r->op, r->flags);
+			/* Parent requires a bool value */
+			if ((r->flags & USECC) && (r->flags & CCONLY) && !(r->flags & ISBOOL)) {
+				output("%s __cctonot", jsr_op);
+				n->flags |= USECC | ISBOOL;
+			} else if (r->flags & ISBOOL)
+				output("BZeorb #1");
+			else {
+				helper(n, "not");
+				n->flags |= USECC | ISBOOL;
+				set_z_flag(0);
+			}
+		} else {
+			boolify_cc(n, s);
+			/* Z is now the inverted test we need */
+			cc_invert = 1;
+			n->flags |= USECC;
+		}
+		return 1;
+
 	case T_DEREF:
 	case T_DEREFPLUS:
 		/* Our right hand side is the thing to deref. See if we can
@@ -1360,8 +1573,12 @@ unsigned gen_shortcut(struct node *n)
 	/* Try and optimise 6809 direct stores of U to local and name */
 	case T_LSTORE:
 	case T_NSTORE:
-		if (r->op == T_RREF && s == 2 && nr)
-			return op16u_on_node(n, "Mst", 0);
+		if (r->op == T_RREF && s == 2 && nr) {
+			if (op16u_on_node(n, "Mst", 0)) {
+				set_u_node(n);
+				return 1;
+			}
+		}
 		break;
 	}
 	return 0;
@@ -1416,7 +1633,7 @@ static unsigned gen_cast(struct node *n)
 	return 1;
 }
 
-unsigned gen_node(struct node *n)
+unsigned gen_node(register struct node *n)
 {
 	unsigned s = get_size(n->type);
 	unsigned nr = n->flags & NORETURN;
@@ -1529,12 +1746,12 @@ unsigned gen_node(struct node *n)
 			return 1;
 		tfr_u_d();
 		set_d_node(n);
-		trackf = stdflags;
+		set_z_flag(0);
 		return 1;
 	case T_RSTORE:
 		tfr_d_u();
 		set_d_node(n);
-		trackf = stdflags;
+		set_z_flag(0);
 		return 1;
 	case T_ARGUMENT:
 		if (d_holds_node(n))
@@ -1551,7 +1768,7 @@ unsigned gen_node(struct node *n)
 		/* The leax will set the flags correctly if our working size
 		   is word */
 		if (s == 2)
-			trackf = stdflags;
+			set_z_flag(0);
 		return 1;
 	case T_LDEREF:
 		if (n->snum == 0 && s <= 2) {
@@ -1636,7 +1853,7 @@ unsigned gen_node(struct node *n)
 		output("comb");
 		modify_b(~b_val);
 		if (s == 1)
-			trackf = stdflags;
+			set_z_flag(0);
 		return 1;
 	case T_NEGATE:
 		if (s == 2) {
@@ -1670,17 +1887,17 @@ unsigned gen_node(struct node *n)
 	/* These do the maths backwards in effect so use the other equvialent
 	   compare for the ordered part */
 	case T_EQEQ:
-		return cmp_op(n, "booleq", "booleq");
+		return cmp_op(n, "booleq", "booleq", 1);
 	case T_BANGEQ:
-		return cmp_op(n, "boolne", "boolne");
+		return cmp_op(n, "boolne", "boolne", 2);
 	case T_LT:
-		return cmp_op(n, "boolugt", "boolgt");
+		return cmp_op(n, "boolugt", "boolgt", 0);
 	case T_GT:
-		return cmp_op(n, "boolult", "boollt");
+		return cmp_op(n, "boolult", "boollt", 0);
 	case T_LTEQ:
-		return cmp_op(n, "booluge", "boolge");
+		return cmp_op(n, "booluge", "boolge", 0);
 	case T_GTEQ:
-		return cmp_op(n, "boolule", "boolle");
+		return cmp_op(n, "boolule", "boolle", 0);
 	/* EQ ops via top of stack. Simpler ones alreadu got handled
 	   by direct or shortcut. For a complex one we try and inline it
 	   by pulling X, but if we can't then we will use a helper between
@@ -1711,24 +1928,9 @@ unsigned gen_node(struct node *n)
 		return do_stkeqop(n, "xminuseq");
 	/* Function calls that were not to a constant name */
 	case T_BOOL:
-		n->flags |= ISBOOL;
-		if (!(n->right && (n->right->flags & ISBOOL)))
-			helper(n, "bool");
-		set_a(0);
-		trackf = stdflags;
-		return 1;
 	case T_BANG:
-		n->flags |= ISBOOL;
-		if (!(n->right && (n->right->flags & ISBOOL))) {
-			helper(n, "not");
-			set_a(0);
-		} else {
-			output("eorb #1");
-			modify_b(b_val ^ 1);
-		}
-		trackf = stdflags;
-		return 1;
-
+		/* Should always be handled as a shortvut */
+		error("bn");
 	}
 	return 0;
 }

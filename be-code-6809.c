@@ -36,6 +36,7 @@ unsigned a_valid;
 unsigned b_valid;
 const char *trackf;
 const char stdflags[] = "neeq";	/* bne true, beq false */
+unsigned cc_invert;
 
 void invalidate_all(void)
 {
@@ -104,6 +105,13 @@ void invalidate_mem(void)
 			n->op = 0;
 		n++;
 	}
+}
+
+/* This will get more complex when we try and tackle relational compares */
+void set_z_flag(unsigned n)
+{
+	cc_invert = n;
+	trackf = stdflags;
 }
 
 void set_r_node(register struct node *r, struct node *n)
@@ -326,6 +334,11 @@ void set_x_node(struct node *n)
 	set_r_node(rnode + R_X, n);
 }
 
+void set_u_node(struct node *n)
+{
+	set_r_node(rnode + R_U, n);
+}
+
 void set_ds_node(struct node *n)
 {
 	set_r_node(rnode + R_DS, n);
@@ -440,8 +453,7 @@ static const char *outflags(register const char *p)
 			invalidate_y();
 			break;
 		case 'Z':
-			/* TODO flags */
-			trackf = stdflags;
+			set_z_flag(0);
 			break;
 		case ' ':
 			break;
@@ -729,6 +741,7 @@ void gen_epilogue(unsigned size, unsigned argsize)
 	if (unreachable)
 		return;
 
+	/* FIXME: this logic is wrong we should not use DP unless cpufeat 2 */
 /*	printf(";size %u byteok %u vr %u\n", size, byteok, vr); */
 	if (size && size <= max && (byteok | !(size & 1))) {
 		if (size & 1) {
@@ -1815,7 +1828,7 @@ unsigned load_u_with(struct node *r)
 }
 
 /* 6809 we have SUBD and access to lots of things */
-unsigned cmp_direct(struct node *n, const char *uop, const char *sop)
+unsigned cmp_direct(struct node *n, const char *uop, const char *sop, unsigned t)
 {
 	struct node *r = n->right;
 	unsigned s = get_size(r->type);
@@ -1825,29 +1838,65 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *sop)
 
 	if (s == 4)
 		return 0;
-
+#if 0
+	/* TODO: once we have the other flags then we want one for true/false */
+	if (b_valid && b_val == BYTE(v)) {
+		if (s == 1 || (a_valid && a_val == BYTE(v >> 8))) {
+			/* Set based upon known value and let our unreachable
+			   clean some of it up at least */
+			/* Might also be worth moving some unreach logic into
+			   the backend */
+		}
+	}
+#endif
+	/* Needs thought, also need to allow for CCFIXED */
+	if (t && v == 0 && (r->flags & USECC) && r->op == T_CONSTANT && v == 0 && (n->flags & CCONLY)) {
+		if (t != 1 || !(n->flags & CCFIXED)) {
+			set_z_flag(2 - t);
+			n->flags |= USECC;
+			return 1;
+		}
+	}
 	if (r->type & UNSIGNED)
 		op = uop;
 	/* Use == 0 helper */
+	/* FIXME: don't want to use 0 helper if we can do the subb trick */
 	if (v == 0 && s == 2 && r->op == T_CONSTANT)
 		zop = 1;
 	/* Do byte compare as we know the high one matches */
-	else if (s == 2 && a_valid && (v & 0xFF00) == a_val && r->op == T_CONSTANT) {
-		output("BZsubb #%u", BYTE(v));
+	if (s == 2 && a_valid && (v & 0xFF00) == a_val && r->op == T_CONSTANT) {
+		if (BYTE(v) == 0)
+			output("Ztstb");
+		else
+			output("BZsubb #%u", BYTE(v));
 		/* We implicitly did the signed first byte comparison */
 		op = uop;
 	} else if (s == 1 && op8_on_node(r, "BZsub", 0) == 0)
 		return 0;
 	/* We can trust the flags off this on 6809 as we have subd */
-	else if (s == 2 && op16d_on_node(r, "DZsub", 0) == 0)
+	else if (s == 2 && !zop && op16d_on_node(r, "DZsub", 0) == 0)
 		return 0;
+	/* Figure out if we need to do a boolify */
+	if (t && (n->flags & CCONLY)) {
+		if (t != 1 || !(n->flags & CCFIXED)) {
+			if (zop) {
+				if (s == 2)
+					output("Dsubd #0");
+				else
+					output("tstb");
+			}
+			n->flags |= USECC;
+			set_z_flag(2 - t);
+			return 1;
+		}
+	}
 	if (!zop)
 		output("BZ%s %s", jsr_op, op);
 	else
 		output("BZ%s %s0", jsr_op, op);
-	n->flags |= ISBOOL;
 	set_a(0);
-	trackf = stdflags;
+	set_z_flag(0);
+	n->flags |= ISBOOL | USECC;
 	return 1;
 }
 
@@ -1985,7 +2034,7 @@ void opd_on_ptr(struct node *n, const char *op, const char *op2, unsigned off)
 
 /* TODO; compare and flip the boolify test rather than go via stack
    when we can */
-unsigned cmp_op(struct node *n, const char *uop, const char *op)
+unsigned cmp_op(struct node *n, const char *uop, const char *op, unsigned t)
 {
 	unsigned s = get_size(n->right->type);
 	if (n->right->type & UNSIGNED)
@@ -1997,9 +2046,17 @@ unsigned cmp_op(struct node *n, const char *uop, const char *op)
 		op8_on_tos("BZsub");
 	else if (s == 2)
 		op16d_on_tos("DZsub");
+	if (t && (n->flags & CCONLY)) {
+		if (t != 1 || !(n->flags & CCFIXED)) {
+			set_z_flag(2 - t);
+			n->flags |= USECC;
+			return 1;
+		}
+	}
 	output("DZ%s %s", jsr_op, op);
-	n->flags |= ISBOOL;
 	set_a(0);
+	set_z_flag(0);
+	n->flags |= ISBOOL | USECC;
 	return 1;
 }
 
@@ -2052,22 +2109,25 @@ void gen_jump(const char *tail, unsigned n)
 	unreachable = 1;
 }
 
-void gen_jfalse(const char *tail, unsigned n)
+static void do_bra(const char *tail, unsigned n, unsigned v)
 {
+	if (cc_invert)
+		v ^= 2;
 	if (unreachable)
 		return;
 	if (trackf == NULL)
-		error("jf");
-	output_nf("b%c%c L%d%s", trackf[2], trackf[3], n, tail);
+		error("j");
+	output_nf("b%c%c L%d%s", trackf[v], trackf[v + 1], n, tail);
+}
+
+void gen_jfalse(const char *tail, unsigned n)
+{
+	do_bra(tail, n, 2);
 }
 
 void gen_jtrue(const char *tail, unsigned n)
 {
-	if (unreachable)
-		return;
-	if (trackf == NULL)
-		error("jt");
-	output_nf("b%c%c L%d%s", trackf[0], trackf[1], n, tail);
+	do_bra(tail, n, 0);
 }
 
 /* True if the helper is to be called C style */
@@ -2092,6 +2152,7 @@ static unsigned c_style(struct node *np)
 void gen_helpcall(struct node *n)
 {
 	invalidate_all();
+	trackf = NULL;
 	printf("\t%s __", jsr_op);
 }
 

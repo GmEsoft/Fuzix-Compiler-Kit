@@ -84,7 +84,6 @@ L%1:
 =
 	beq L%2
 L%1:
-	bra L%1
 
 ;
 L%2:
@@ -129,14 +128,6 @@ L%1:
 	ld%1 0,x
 =
 	ld%1 [,s++]
-
-# Store 32bit optimisation
-	exg d,y
-	stb 1,x
-	sta 0,x
-	exg d,y
-=
-	sty 0,x
 
 # -- handling that we don't clean up as a subtree (should move into
 # compiler eventually)
@@ -238,13 +229,13 @@ L%1:
 	jsr boollt
 
 # Until we tidy bool up more again
-
-	clra
-	clrb
-	jsr __bool
-=
-	clra
-	clrb
+# FIXME: messes up flags
+#	clra
+#	clrb
+#	jsr __bool
+#=
+#	clra
+#	clrb
 
 	ldd #1
 	jsr __bool
@@ -263,14 +254,6 @@ L%1:
 =
 	andb %1
 	jsr __boolc
-
-# The old value of A doesn't matter for bool ops
-	clra
-	subb %1
-	jsr bool%2
-=
-	subb %1
-	jsr bool%2
 
 # Need to sort this out in compiler eventually
 	tfr u,x
@@ -417,9 +400,7 @@ L%1:
 	beq %2
 	incb
 
-
-# Use of ABX (safe because this code pattern will update X after refs and
-# will have invalidated D
+# Messes up flags but not in a case that matters (needs review)
 	ldb %1
 	clra
 	addd %2
@@ -429,29 +410,3 @@ L%1:
 	ldx %2
 	abx
 
-# Stack reload avoidance on entry
-# FIXME: need to watch flags here - this wants doing by tracking
-# and setting the D node on entry when correct
-	pshs d
-	ldd 0,s
-=
-	pshs d
-
-	pshs u,d
-	ldd 0,s
-=
-	pshs u,d
-
-	pshs d
-	leas -%1,s
-	ldd %1,s
-=
-	pshs d
-	leas -%1,s
-
-	pshs u,d
-	leas -%1,s
-	ldd %1,s
-=
-	pshs u,d
-	leas -%1,s

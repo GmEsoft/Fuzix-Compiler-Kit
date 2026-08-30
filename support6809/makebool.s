@@ -30,6 +30,7 @@
 	.export __boolc
 	.export __not
 	.export __notc
+	.export __cctonot
 
 ;
 ;	Turn  val op test into 1 for true 0 for false. Ensure the Z flag
@@ -42,6 +43,7 @@ __notc:
 __not:
 booleq0:
 	subd	#0
+__cctonot:
 booleq:
 	bne	ret0
 ret1:

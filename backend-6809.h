@@ -21,6 +21,8 @@
 #define T_RDEREFPLUS	(T_USER+19)	/* *regptr++ */
 #define T_REQPLUS	(T_USER+20)	/* *regptr++ =  */
 
+#define USECC		0x0100		/* Node produced valid Z flag */
+
 extern unsigned frame_len;	/* Number of bytes of stack frame */
 extern unsigned sp;		/* Stack pointer offset tracking */
 extern unsigned argbase;	/* Argument offset in current function */
@@ -28,6 +30,7 @@ extern unsigned unreachable;	/* Code following an unconditional jump */
 extern unsigned func_a1size;	/* Number of argument bytes pushed by callee */
 
 extern const char *trackf;
+extern unsigned cc_invert;
 extern const char stdflags[];
 
 extern unsigned get_size(unsigned t);
@@ -57,6 +60,7 @@ extern void invalidate_b(void);
 extern void invalidate_d(void);
 extern void invalidate_work(void);
 extern void invalidate_mem(void);
+extern void set_z_flag(unsigned inverted);
 extern void set_d_node(struct node *n);
 extern void set_d_node_ptr(struct node *n);
 extern unsigned d_holds_node(struct node *n);
@@ -65,6 +69,7 @@ extern unsigned d_const_value(void);
 extern void set_ds_node(struct node *n);
 extern void set_ds_node_ptr(struct node *n);
 extern void set_x_node(struct node *n);
+extern void set_u_node(struct node *n);
 extern void modify_a(uint8_t val);
 extern void modify_b(uint8_t val);
 extern void set_a(uint8_t val);
@@ -125,14 +130,14 @@ extern unsigned can_load_r_simple(struct node *r);
 extern unsigned can_load_r_with(struct node *r);
 extern unsigned load_x_with(struct node *r);
 extern unsigned load_u_with(struct node *r);
-extern unsigned cmp_direct(struct node *n, const char *uop, const char *op);
+extern unsigned cmp_direct(struct node *n, const char *uop, const char *op, unsigned t);
 extern int count_mul_cost(unsigned n);
 extern void write_mul(unsigned n);
 extern unsigned gen_fast_mul(unsigned s, unsigned n);
 extern unsigned gen_fast_div(unsigned n, unsigned s, unsigned u);
 extern void op_on_ptr(struct node *n, const char *op, unsigned off);
 extern void opd_on_ptr(struct node *n, const char *op, const char *op2, unsigned off);
-extern unsigned cmp_op(struct node *n, const char *up, const char *op);
+extern unsigned cmp_op(struct node *n, const char *up, const char *op, unsigned t);
 extern void gen_fcall(struct node *n, unsigned vararg);
 extern void output(const char *, ...);
 extern void outlabel(const char *, ...);
