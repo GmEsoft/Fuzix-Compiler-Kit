@@ -415,7 +415,6 @@ unsigned gen_direct(struct node *n)
 	unsigned off;
 	uint16_t v;
 	uint16_t hv;
-	unsigned nr = n->flags & NORETURN;
 
 	switch(n->op) {
 	/* Clean up is special and must be handled directly. It also has the
@@ -445,7 +444,7 @@ unsigned gen_direct(struct node *n)
 				swap_d_x();
 				load_d_const(v);
 				load_y_const(r->value >> 16);
-				store32(off, nr);
+				store_via_x(n, off);
 				return 1;
 			}
 		}
@@ -752,7 +751,7 @@ unsigned do_xptrop(struct node *n, const char *op, unsigned off)
 		return 1;
 	}
 	/* Stuff D back into ,X */
-	opd_on_ptr(n, "st", "st", off);
+	store_via_x(n, off);
 	if (size <= 2)
 		set_z_flag(0);
 	set_ds_node_ptr(n->left);
@@ -805,7 +804,7 @@ unsigned write_xsimple(struct node *n, unsigned via_ptr)
 	top = deref_op(l->op);
 	if (via_ptr || top == 0) {
 		off = load_x_with(l);
-		opd_on_ptr(n, "ld", "ld", off);
+		load_via_x(n, off);
 		via_ptr = 1;
 	} else {
 		/* Not sure we should encourage this kind of behaviour ;) */
@@ -820,7 +819,7 @@ unsigned write_xsimple(struct node *n, unsigned via_ptr)
 		write_op(r, op, op2, 0);
 
 	if (via_ptr)
-		opd_on_ptr(n, "st", "st", off);
+		store_via_x(n, off);
 	else
 		write_opd(l, "st", off);
 	set_d_node_ptr(l);
@@ -1404,10 +1403,7 @@ unsigned gen_shortcut(struct node *n)
 		if (can_load_r_simple(r)) {
 			v += load_x_with(r);
 			invalidate_work();
-			if (s == 4)
-				load32(v);
-			else
-				opd_on_ptr(n, "ld", "ld", v);
+			load_via_x(n, v);
 			/* FIXME: set_d_node_ptr(r); */
 			return 1;
 		}
@@ -1429,13 +1425,8 @@ unsigned gen_shortcut(struct node *n)
 			}
 			codegen_lr(r);
 			v += load_x_with(l);
-			invalidate_mem();
-			if (s == 4)
-				store32(v, nr);
-			else {
-				opd_on_ptr(n, "st", "st", v);
-				/* FIXME: can we do this .. investigate set_ds_node_ptr(l); */
-			}
+			store_via_x(n, v);
+			/* FIXME: can we do this .. investigate set_ds_node_ptr(l); */
 			return 1;
 		}
 		if (can_load_d_nox(r) && s < 4) {
@@ -1456,11 +1447,7 @@ unsigned gen_shortcut(struct node *n)
 			invalidate_work();
 
 			/* Store */
-			invalidate_mem();
-			if (s == 4)
-				store32(v, nr);
-			else
-				opd_on_ptr(n, "st", "st", v);
+			store_via_x(n, v);
 			return 1;
 		}
 		return 0;
@@ -1649,41 +1636,14 @@ unsigned gen_node(register struct node *n)
 	case T_DEREF:
 	case T_DEREFPLUS:
 		make_x_d();
-		if (s == 1) {
-			op8_on_ptr("ld", v);
-			invalidate_b();
-			return 1;
-		}
-		if (s == 2) {
-			op16d_on_ptr("ld", v);
-			set_d_node(n);
-			return 1;
-		}
-		if (s == 4) {
-			load32(v);
-			set_d_node(n);	/* TODO: review 32 bit cases */
-			return 1;
-		}
-		return 0;
+		load_via_x(n, v);
+		return 1;
 	case T_EQ:	/* Assign - ToS is address, working value is value */
 	case T_EQPLUS:
 		invalidate_mem();
-		if (s == 1) {
-			pop_x();
-			op8_on_ptr("st", v);
-			return 1;
-		}
-		if (s == 2) {
-			pop_x();
-			op16d_on_ptr("st", v);
-			return 1;
-		}
-		if (s == 4) {
-			pop_x();
-			store32(v, nr);
-			return 1;
-		}
-		break;
+		pop_x();
+		store_via_x(n, v);
+		return 1;
 	case T_CONSTANT:
 		if (s == 1) {
 			load_b_const(v);
@@ -1780,13 +1740,7 @@ unsigned gen_node(register struct node *n)
 		} else {
 			output("Xldx %u,s", v + sp);
 		}
-		v = n->snum;
-		if (s == 1)
-			op8_on_ptr("ZDld", v);
-		else if (s == 2)
-			op16d_on_ptr("ZDld", v);
-		else
-			load32(v);
+		load_via_x(n, n->snum);
 		return 1;
 	case T_NDEREF:
 		/* Deref through a name. Only generated for the 6809
@@ -1829,7 +1783,7 @@ unsigned gen_node(register struct node *n)
 		else if (s == 2)
 			op16d_on_ptr("ZMst", n->snum);
 		else
-			store32(n->snum, nr);
+			store_via_x(n, n->snum);
 		return 1;
 	case T_NEQ:
 		if (s == 1)

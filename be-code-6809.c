@@ -1285,16 +1285,38 @@ void op32d_on_ptr(const char *op, const char *op2, unsigned off)
 	swap_d_y();
 }
 
-void load32(unsigned off)
+void load_via_x(struct node *n, unsigned off)
 {
-	output("Yldy %u,x", off);
-	output("Dldd %u,x", off + 2);
+	switch(get_size(n->type)) {
+	case 1:
+		output("Bldb %u,x", off);
+		break;
+	case 2:
+		output("ldd %u,x", off);
+		set_d_node(n);
+		break;
+	case 4:
+		output("Yldy %u,x", off);
+		output("Dldd %u,x", off + 2);
+		break;
+	}
 }
 
-void store32(unsigned off, unsigned nr)
+void store_via_x(struct node *n, unsigned off)
 {
-	output("Msty %u,x", off);
-	output("Mstd %u,x", off + 2);
+	switch(get_size(n->type)) {
+	case 1:
+		output("Mstb %u,x", off);
+		break;
+	case 2:
+		output("Mstd %u,x", off);
+		set_ds_node(n);
+		break;
+	case 4:
+		output("Msty %u,x", off);
+		output("Mstd %u,x", off + 2);
+		break;
+	}
 }
 
 void uniop_on_ptr(register const char *op, register unsigned off,
