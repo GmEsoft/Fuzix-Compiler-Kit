@@ -428,3 +428,12 @@ L%1:
 =
 	subb #%1
 	jsr bool%2
+
+# Covers some forced return 0 noise
+	clra
+	clrb
+L%1:
+	ldd %2
+=
+L%1:
+	ldd %2

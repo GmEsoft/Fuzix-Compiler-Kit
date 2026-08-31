@@ -1379,10 +1379,14 @@ unsigned gen_shortcut(struct node *n)
 		   and || in backend.c */
 		if ((n->flags & CCONLY) && (r->flags & USECC)) {
 			/* Can't just flip flag */
-			if ((n->flags & CCFIXED) && !(r->flags & ISBOOL)) {
-				output("%s __cctonot", jsr_op);
+			if (n->flags & CCFIXED) {
+				if (r->flags & ISBOOL)
+					output("Beorb #1");
+				else {
+					output("%s __cctonot", jsr_op);
+					set_a(0);
+				}
 				n->flags |= ISBOOL;
-				set_a(0);
 				return 1;
 			}
 			/* Easy usual case */

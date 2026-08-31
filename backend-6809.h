@@ -131,6 +131,7 @@ extern unsigned can_load_r_simple(struct node *r);
 extern unsigned can_load_r_with(struct node *r);
 extern unsigned load_x_with(struct node *r);
 extern unsigned load_u_with(struct node *r);
+extern unsigned cmp_known(struct node *n, unsigned s, unsigned t, unsigned v);
 extern unsigned cmp_direct(struct node *n, const char *uop, const char *op, unsigned t);
 extern int count_mul_cost(unsigned n);
 extern void write_mul(unsigned n);

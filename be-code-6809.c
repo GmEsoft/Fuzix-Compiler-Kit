@@ -36,6 +36,7 @@ unsigned a_valid;
 unsigned b_valid;
 const char *trackf;
 const char stdflags[] = "neeq";	/* bne true, beq false */
+const char fixedflags[] = "raxx";	/* bra true, nothing false */
 unsigned cc_invert;
 
 void invalidate_all(void)
@@ -114,8 +115,20 @@ void set_z_flag(unsigned n)
 	trackf = stdflags;
 }
 
+/* Z flag definitively known */
+static void set_z_known(unsigned n)
+{
+	cc_invert = n;
+	trackf = fixedflags;
+}
+
 void set_r_node(register struct node *r, struct node *n)
 {
+	/* Don't track 32bit types yet */
+	if (get_size(n->type) > 2) {
+		invalidate_work();
+		return;
+	}
 	memcpy(r, n, sizeof(struct node));
 	switch(r->op) {
 	case T_LSTORE:
@@ -181,6 +194,12 @@ unsigned r_holds_node(struct node *r, struct node *n)
 void set_d_node(struct node *n)
 {
 	set_r_node(rnode + R_D, n);
+	a_valid = b_valid = 0;
+	if (n->op == T_CONSTANT) {
+		set_b(BYTE(n->value));
+		if (get_size(n->type) == 2)
+			set_a(BYTE(WORD(n->value) >> 8));
+	}
 }
 
 void set_d_node_ptr(struct node *n)
@@ -576,11 +595,11 @@ void tfr_d_x(void)
 void tfr_x_d(void)
 {
 	if (r_holds_node(rnode + R_D, rnode + R_X)) {
-		printf("; tfr d,x removed\n");
+		printf("; tfr x,d removed\n");
 		return;
 	}
 	if (r_holds_node(rnode + R_DS, rnode + R_X)) {
-		printf("; tfr d,x removed\n");
+		printf("; tfr x,d removed\n");
 		return;
 	}
 	output_nf("Xtfr x,d");
@@ -1116,6 +1135,9 @@ void load_b_const(uint8_t n)
 
 void add_d_const(uint16_t n)
 {
+	register uint_fast8_t hi = BYTE(n >> 8);
+	register uint_fast8_t lo = BYTE(n);
+
 	if (n == 0)
 		return;
 
@@ -1124,16 +1146,16 @@ void add_d_const(uint16_t n)
 
 	inv_d_node();
 
-	if (BYTE(n))
+	if (lo)
 		output("addd #%u", n);
 	else
-		output("adda #%u", n >> 8);
+		output("adda #%u", hi);
 
-	if (b_val + (n & 0xFF) < b_val)
-		modify_a(a_val + (n >> 8) + 1);
+	if (BYTE(b_val + lo) < b_val)
+		modify_a(a_val + hi + 1);
 	else
-		modify_a(a_val + (n >> 8));
-	modify_b(b_val + BYTE(n));
+		modify_a(a_val + hi);
+	modify_b(b_val + lo);
 }
 
 void add_b_const(uint8_t n)
@@ -1422,19 +1444,19 @@ unsigned op16_on_node(struct node *r, const char *op, const char *op2, unsigned 
 	case T_LREF:
 		/* Big endian */
 		off += v + sp;
-		output("B%sb %u,s", op, off + 1);
-		output("A%sa %u,s", op2, off);
+		output("%sb %u,s", op, off + 1);
+		output("%sa %u,s", op2, off);
 		break;
 	case T_CONSTANT:
-		output("A%sa #>%u", op, (v + off) & 0xFFFF);
-		output("B%sb #<%u", op2, (v + off) & 0xFFFF);
+		output("%sa #>%u", op, (v + off) & 0xFFFF);
+		output("%sb #<%u", op2, (v + off) & 0xFFFF);
 		break;
 	case T_NSTORE:
 		store = 1;
 	case T_NREF:
 	case T_NAME:
-		output("A%sa %s", op, addr_form(r, off, 1));
-		output("B%sb %s", op2, addr_form(r, off + 1, 1));
+		output("%sa %s", op, addr_form(r, off, 1));
+		output("%sb %s", op2, addr_form(r, off + 1, 1));
 		break;
 	default:
 		return 0;
@@ -1457,13 +1479,13 @@ unsigned op16d_on_node(struct node *r, const char *op, unsigned off)
 		store = 1;
 	case T_LREF:
 		/* Big endian */
-		output("D%sd %u,s", op, off + v + sp);
+		output("%sd %u,s", op, off + v + sp);
 		break;
 	case T_LDEREF:
 		/* Big endian */
 		if (r->snum)
 			return 0;
-		output("D%sd [%u,s]", op, off + v + sp);
+		output("%sd [%u,s]", op, off + v + sp);
 		break;
 	case T_NSTORE:
 		store = 1;
@@ -1834,10 +1856,8 @@ static unsigned load_r_with(char reg, struct node *r)
 
 unsigned load_x_with(struct node *r)
 {
-	if (r_holds_node(rnode + R_X, r)) {
-		printf("; X already loaded\n");
+	if (r_holds_node(rnode + R_X, r))
 		return 1;
-	}
 	return load_r_with('x', r);
 }
 
@@ -1847,6 +1867,28 @@ unsigned load_u_with(struct node *r)
 	if (r_holds_node(rnode + R_U, r))
 		return 1;
 	return load_r_with('u', r);
+}
+
+unsigned cmp_known(struct node *n, unsigned s, unsigned t, unsigned v)
+{
+	unsigned match = 1;
+	if (n->flags & CCFIXED)
+		return 0;
+	if (!(n->flags & CCONLY))
+		return 0;
+	if (!b_valid || (s == 2 && !a_valid))
+		return 0;
+	/* NE match */
+	if (b_val != BYTE(v))
+		match = 2;
+	else if (s == 2 && BYTE(WORD(v >> 8)) != a_val)
+		match = 2;
+	if (t == match)
+		set_z_known(2 - t);
+	else
+		set_z_known(t - 1);
+	n->flags |= USECC;
+	return 1;
 }
 
 /* 6809 we have SUBD and access to lots of things */
@@ -1860,17 +1902,10 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *sop, unsigned t
 
 	if (s == 4)
 		return 0;
-#if 0
-	/* TODO: once we have the other flags then we want one for true/false */
-	if (b_valid && b_val == BYTE(v)) {
-		if (s == 1 || (a_valid && a_val == BYTE(v >> 8))) {
-			/* Set based upon known value and let our unreachable
-			   clean some of it up at least */
-			/* Might also be worth moving some unreach logic into
-			   the backend */
-		}
-	}
-#endif
+
+	if (cmp_known(n, s, t, v))
+		return 1;
+
 	/* Needs thought, also need to allow for CCFIXED */
 	if (t && v == 0 && (r->flags & USECC) && r->op == T_CONSTANT && v == 0 && (n->flags & CCONLY)) {
 		if (t != 1 || !(n->flags & CCFIXED)) {
@@ -1882,7 +1917,6 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *sop, unsigned t
 	if (r->type & UNSIGNED)
 		op = uop;
 	/* Use == 0 helper */
-	/* FIXME: don't want to use 0 helper if we can do the subb trick */
 	if (v == 0 && s == 2 && r->op == T_CONSTANT)
 		zop = 1;
 	/* Do byte compare as we know the high one matches */
@@ -2139,7 +2173,13 @@ static void do_bra(const char *tail, unsigned n, unsigned v)
 		return;
 	if (trackf == NULL)
 		error("j");
+	/* Don't emit any branch never */
+	if (trackf[v] == 'x')
+		return;
+	/* Always causes unreach */
 	output_nf("b%c%c L%d%s", trackf[v], trackf[v + 1], n, tail);
+	if (trackf[v] == 'r')
+		unreachable = 1;
 }
 
 void gen_jfalse(const char *tail, unsigned n)
