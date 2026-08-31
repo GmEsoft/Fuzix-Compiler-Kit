@@ -1301,6 +1301,9 @@ unsigned gen_shortcut(struct node *n)
 		   happens to end up in the flags registers. Instead we
 		   generate the subtree and take a look */
 		codegen_lr(r);
+		/* Constant result ? */
+		if (cmp_known(n, s, 1, 0))
+			return 1;
 		/* The thing to bool is USECC but we are not. This should not happen */
 		if (!(n->flags & CCONLY) && (r->flags & USECC) && !(r->flags & ISBOOL)) {
 			output_nf(";BOTCH %04X:%04X", r->op, r->flags);
@@ -1367,6 +1370,9 @@ unsigned gen_shortcut(struct node *n)
 			r->flags |= USECC;
 		/* Same as with BOOL */
 		codegen_lr(r);
+		/* Constant result ? */
+		if (cmp_known(n, s, 2, 0))
+			return 1;
 		/* Flags hold the state already and we can use condition
 		   codes. This means we can probably invert the flag logic
 		   but there are fringe cases that would need us to rework &&
@@ -1694,7 +1700,8 @@ unsigned gen_node(register struct node *n)
 		/* size 4 varies */
 		load_d_const(v);
 		if ((n->value >> 16) == WORD(v))
-			output_nf("Ytfr d,y");	/* FIXME: add this as op for tracking ? */
+			tfr_d_y();
+//			output_nf("Ytfr d,y");	/* FIXME: add this as op for tracking ? */
 		else
 			load_y_const(n->value >> 16);
 		return 1;
@@ -1703,7 +1710,7 @@ unsigned gen_node(register struct node *n)
 		if (s == 4) {
 			load_y_const(0);
 			/* Now do the op on the word */
-			set_d_node(n);	/* Always works so safe to do ahead */
+			set_ds_node(n);	/* FIXME - need to sort long and to be after */
 			return op16d_on_node(n, "ld", 0);
 		}
 		/* Fall through */
@@ -1713,13 +1720,13 @@ unsigned gen_node(register struct node *n)
 		if (d_holds_node(n) && !se)
 			return 1;
 		if (write_opd(n, "Zld", 0)) {
-			set_d_node(n);
+			set_ds_node(n);
 			return 1;
 		}
 		if (s == 4) {
 			op16y_on_node(n, "ld", 0);
 			op16d_on_node(n, "ld", 2);
-			invalidate_work();
+			set_d_node(n);
 			return 1;
 		}
 		return 0;
@@ -1731,9 +1738,9 @@ unsigned gen_node(register struct node *n)
 			return 1;
 		}
 		if (s == 4) {
-			/* Invalidate here until we track properly TODO */
-			op16y_on_node(n, "YMst", 0);
+			op16y_on_node(n, "Mst", 0);
 			op16d_on_node(n, "Mst", 2);
+			set_ds_node(n);
 			return 1;
 		}
 		break;
@@ -1744,12 +1751,11 @@ unsigned gen_node(register struct node *n)
 			return 1;
 		tfr_u_d();
 		set_d_node(n);
-		set_z_flag(0);
+		/* tfr does not set flags */
 		return 1;
 	case T_RSTORE:
 		tfr_d_u();
 		set_d_node(n);
-		set_z_flag(0);
 		return 1;
 	case T_ARGUMENT:
 		if (d_holds_node(n))
