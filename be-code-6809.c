@@ -568,7 +568,9 @@ void tfr_u_d(void)
 		printf(";tfr u,d removed\n");
 		return;
 	}
-	output_nf("tfr u,d");
+	/* tfr u,d does not set flags but it does make any existing
+	   flag state no longer reflect D */
+	output("tfr u,d");
 	track_copy(R_U, R_D);
 }
 
@@ -602,7 +604,9 @@ void tfr_x_d(void)
 		printf("; tfr x,d removed\n");
 		return;
 	}
-	output_nf("Xtfr x,d");
+	/* tfr u,d does not set flags but it does make any existing
+	   flag state no longer reflect D */
+	output("tfr x,d");
 	track_copy(R_X, R_D);
 }
 

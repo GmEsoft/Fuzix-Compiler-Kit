@@ -1764,7 +1764,7 @@ unsigned gen_node(register struct node *n)
 		return 1;
 	case T_RSTORE:
 		tfr_d_u();
-		set_d_node(n);
+		set_ds_node(n);
 		return 1;
 	case T_ARGUMENT:
 		if (d_holds_node(n))
