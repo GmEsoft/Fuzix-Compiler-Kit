@@ -725,7 +725,7 @@ void gen_frame(unsigned size, unsigned aframe, unsigned s1)
 		else
 			adjust_s(-size, 0);
 	}
-	if (s1 < 4) {
+	if (s1 && s1 < 4) {
 		/* Working holds the top of the stack */
 		rnode[R_D].op = T_LREF;
 		rnode[R_D].value = 0;
@@ -755,7 +755,7 @@ void gen_epilogue(unsigned size, unsigned argsize)
 
 	if (cpufeat & 2) {
 		/* use-dp */
-		byteok = 1;
+		byteok = 2;
 		max++;
 	}
 	if (sp)
@@ -768,7 +768,7 @@ void gen_epilogue(unsigned size, unsigned argsize)
 /*	printf(";size %u byteok %u vr %u\n", size, byteok, vr); */
 	if (size && size <= max && (byteok | !(size & 1))) {
 		if (size & 1) {
-			if (byteok)
+			if (byteok == 2)
 				str = rd + 7 - size;
 			else
 				str = rb + 5 - size;
