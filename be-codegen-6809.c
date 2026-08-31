@@ -1142,8 +1142,10 @@ static void boolify_cc(struct node *n, unsigned s)
 	else
 		output("Ztstb");
 	n->flags |= USECC;
-	if (n->right->flags & ISBOOL)
+	if (n->right->flags & ISBOOL) {
 		n->flags |= ISBOOL;
+		set_a(0);
+	}
 	set_z_flag(0);
 }
 
@@ -1301,6 +1303,7 @@ unsigned gen_shortcut(struct node *n)
 		   happens to end up in the flags registers. Instead we
 		   generate the subtree and take a look */
 		codegen_lr(r);
+//		output_nf(";bool");
 		/* Constant result ? */
 		if (cmp_known(n, s, 1, 0))
 			return 1;
@@ -1359,7 +1362,6 @@ unsigned gen_shortcut(struct node *n)
 			n->flags |= ISBOOL | USECC;
 			set_z_flag(0);
 		}
-		set_a(0);
 		return 1;
 	case T_BANG:
 		/* This is actually a bit easier than BOOL because the
@@ -1370,9 +1372,12 @@ unsigned gen_shortcut(struct node *n)
 			r->flags |= USECC;
 		/* Same as with BOOL */
 		codegen_lr(r);
+//		output_nf(";bang");
 		/* Constant result ? */
-		if (cmp_known(n, s, 2, 0))
+		if (cmp_known(n, s, 2, 0)) {
+			output_nf(";known");
 			return 1;
+		}
 		/* Flags hold the state already and we can use condition
 		   codes. This means we can probably invert the flag logic
 		   but there are fringe cases that would need us to rework &&
