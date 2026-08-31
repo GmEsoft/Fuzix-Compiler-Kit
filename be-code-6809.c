@@ -1907,6 +1907,9 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *sop, unsigned t
 	if (s == 4)
 		return 0;
 
+	if (!can_load_r_simple(r))
+		return 0;
+
 	if (cmp_known(n, s, t, v))
 		return 1;
 
