@@ -1806,7 +1806,7 @@ unsigned gen_node(register struct node *n)
 	case T_RDEREF:
 		if (s == 4) {
 			output("Yldy %u,u", n->snum);
-			output("Dldd %u,u\n", n->snum + 2);
+			output("Dldd %u,u", n->snum + 2);
 		} else if (s == 2)
 			output("ZDldd %u,u", n->snum);
 		else

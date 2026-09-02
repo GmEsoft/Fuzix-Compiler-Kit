@@ -1459,6 +1459,7 @@ unsigned op16_on_node(struct node *r, const char *op, const char *op2, unsigned 
 		store = 1;
 	case T_NREF:
 	case T_NAME:
+	case T_RDEREF:
 		output("%sa %s", op, addr_form(r, off, 1));
 		output("%sb %s", op2, addr_form(r, off + 1, 1));
 		break;
@@ -1496,6 +1497,7 @@ unsigned op16d_on_node(struct node *r, const char *op, unsigned off)
 	case T_CONSTANT:
 	case T_NREF:
 	case T_NAME:
+	case T_RDEREF:
 		output("%sd %s", op, addr_form(r, off, 2));
 		break;
 	default:
@@ -1526,6 +1528,7 @@ static unsigned op16r_on_node(struct node *r, char reg, const char *op, unsigned
 	case T_CONSTANT:
 	case T_NREF:
 	case T_NAME:
+	case T_RDEREF:
 		output("%s%c %s", op, reg, addr_form(r, off, 2));
 		break;
 	/* These two cases will be doable on the left with right const */
@@ -1592,6 +1595,7 @@ unsigned write_uni_op(register struct node *r, const char *op, unsigned off)
 		break;
 	case T_NSTORE:
 	case T_NREF:
+	case T_RDEREF:
 		output("%s %s", op, addr_form(r, off, 1));
 		if (s == 2)
 			output("%s %s", op, addr_form(r, off + 1, 1));
@@ -1763,7 +1767,6 @@ unsigned can_load_r_simple(struct node *r)
 	case T_CONSTANT:
 	case T_NREF:
 	case T_NAME:
-	case T_RREF:
 	case T_RDEREF:
 		return 1;
 	}
