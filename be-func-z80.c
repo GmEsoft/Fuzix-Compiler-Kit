@@ -78,12 +78,13 @@ void gen_frame(unsigned size,  unsigned aframe, unsigned t1)
 		argbase += 2;
 	} else {
 		/* IY is free use it as a frame pointer ? */
-		if (!optsize && size > 4) {
+		if (!optsize && size + aframe > 4) {
 			argbase += 2;
 			printf("\tpush iy\n");
 			/* Remember we need to restore IY */
 			func_flags |= F_REG(3);
 			use_fp = 1;
+			func_cleanup = 1;
 		}
 	}
 	/* If we are building a frame pointer we need to do this work anyway */
