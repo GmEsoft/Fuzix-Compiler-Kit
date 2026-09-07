@@ -45,10 +45,11 @@ OBJ = workspace.o __true.o __switchc.o __switch.o __switchl.o __pushl.o __sex.o 
       __ldbyte.o __ldbytew.o __stbyte.o __stbytew.o \
       __bcand.o __bcdiv.o __bcdivu.o __bcmul.o __bcor.o __bcshl.o __bcshr.o __bcsub.o __bcxor.o \
       __ixsub.o __iysub.o \
-      _memcmp.o _memcpy.o _memset.o _strcmp.o _strlen.o _strncmp.o \
-      _strlcat.o _strcpy.o _strchr.o _strrchr.o _strlen.o \
       __boolf.o __cast2f.o __castf.o __cceqf.o __ccgteqf.o __ccgtf.o __cclteqf.o \
       __ccltf.o __ccnef.o __divf.o __minusf.o __mulf.o __plusf.o __eqopf.o
+
+LCOBJ = _memcmp.o _memcpy.o _memset.o _strcmp.o _strlen.o _strncmp.o \
+      _strlcat.o _strcpy.o _strchr.o _strrchr.o _strlen.o
 
 
 include ldst.mk
@@ -69,6 +70,10 @@ makeldst: makeldst.c
 libz80.a: makeldst $(OBJ)
 	rm -f libz80.a
 	ar qc libz80.a `../lorderz80 $(OBJ) | tsort`
+
+libc.a: $(LCOBJ)
+	rm -f libc.a
+	ar qc libc.a `../lorderz80 $(LCOBJ) | tsort`
 
 clean:
 	rm -f *.o *.a
