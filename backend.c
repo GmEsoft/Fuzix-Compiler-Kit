@@ -609,6 +609,7 @@ static void process_header(void)
 		break;
 	case H_SWITCHTAB | H_FOOTER:
 		pop_area();
+		gen_label("_e", h.h_name);
 		break;
 	case H_DATA:
 		push_area(A_DATA);

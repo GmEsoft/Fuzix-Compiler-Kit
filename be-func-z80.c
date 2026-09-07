@@ -284,6 +284,14 @@ void gen_switch(unsigned n, unsigned type)
 
 void gen_switchdata(unsigned n, unsigned size)
 {
+	/* On a banked build put the switch tables in with the
+	   banked code for efficiency and so the table is not
+	   common space */
+	if (cpufeat & 1) {
+		printf("\t.%s\n", codeseg);
+		if (!unreachable)
+			printf("\tjr L%u_e\n", n);
+	}
 	printf("Sw%u:\n", n);
 	printf("\t.word %u\n", size);
 }
