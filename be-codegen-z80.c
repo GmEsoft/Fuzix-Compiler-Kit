@@ -2015,9 +2015,11 @@ unsigned gen_node(register struct node *n)
 		}
 		break;
 	case T_FUNCCALL:
-		/* Banking has no other effect as indirectly referenced calls go via the stub
-		   table so the function has a valid 16bit "address". callhl must live in common */
-		printf("\tcall __callhl\n");
+		/* Banking we need to adjust the stack */
+		if (cpufeat & 1)
+			puts("\tpush af\n\tcall __callhl\n\tpop af");
+		else
+			puts("\tcall __callhl");
 		return 1;
 	case T_CONSTANT:
 		switch(size) {
