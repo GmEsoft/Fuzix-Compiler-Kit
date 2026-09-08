@@ -766,6 +766,9 @@ void gen_frame(unsigned size, unsigned aframe, unsigned t1)
 		puts("\tpush p3");
 		argbase += 2;
 	}
+	/* Banked */
+	if (cpufeat & 1)
+		argbase += 2;
 
 	/* For ease of cleanup just leave a padding byte */
 	if (size & 1) {
@@ -894,6 +897,11 @@ void gen_switch(unsigned n, unsigned type)
 
 void gen_switchdata(unsigned n, unsigned size)
 {
+	if (cpufeat & 1) {
+		if (!unreachable)
+			printf("jmp L%u_e", n);
+		unreachable = 1;
+	}
 	printf("Sw%d:\n", n);
 	printf("\t.word %d\n", size);
 }
@@ -2452,13 +2460,21 @@ unsigned gen_shortcut(struct node *n)
 		codegen_lr(r);
 		flush_writeback(NULL);
 		invalidate_all();
+		if (cpufeat & 1)
+			puts("\tpush p2");
 		puts("\tjsr __callea\n");
+		if (cpufeat & 1)
+			puts("\tpop p2");
 		return 1;
 	case T_CALLNAME:
 		gen_fcall(l);
 		flush_writeback(NULL);
 		invalidate_all();
+		if (cpufeat & 1)
+			puts("\tpush p2");
 		printf("\tjsr %s+%d\n", namestr(n->snum), WORD(n->value));
+		if (cpufeat & 1)
+			puts("\tpop p2");
 		return 1;
 	case T_PLUSPLUS:	/* Always constant right */
 		if (!nr) {
@@ -2701,11 +2717,13 @@ unsigned gen_node(struct node *n)
 		puts("\tld p3,ea");
 		set_ea_node(n);
 		return 1;
+#if 0
 	case T_CALLNAME:
 		flush_writeback(NULL);
 		invalidate_all();
 		printf("\tjsr %s+%d\n", namestr(n->snum), v);
 		return 1;
+#endif
 	case T_EQ:
 		n->value = 0;
 	case T_EQPLUS:
@@ -2801,12 +2819,18 @@ unsigned gen_node(struct node *n)
 		op16("st", sz, O_STORE, nr);
 		/* TODO node track */
 		return 1;
+#if 0
 	case T_FUNCCALL:
 		flush_writeback(NULL);
 		invalidate_all();
 		/* EA holds the function ptr */
+		if (cpufeat & 1)
+			puts("\tpush p2");
 		puts("\tjsr __callea\n");
+		if (cpufeat & 1)
+			puts("\tpop p2");
 		return 1;
+#endif
 	case T_CONSTANT:
 		if (is_byte)
 			sz = 1;

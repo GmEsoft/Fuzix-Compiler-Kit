@@ -785,6 +785,8 @@ void gen_frame(unsigned size, unsigned aframe, unsigned t1)
 		func_cleanup = 0;
 
 	argbase = ARGBASE;
+	if (cpufeat & 1)	/* Banked */
+		argbase += 2;	/* Allow for banking word */
 	if (func_flags & F_REG(1)) {
 		opcode("push b");
 		argbase += 2;
@@ -992,10 +994,18 @@ void gen_switch(unsigned n, unsigned type)
 	printf("\tjmp __switch");
 	helper_type(type, 0);
 	putchar('\n');
+	unreachable = 1;
 }
 
 void gen_switchdata(unsigned n, unsigned size)
 {
+	/* On a banked system we interleave the code and table so that
+	   its cleaner (no stubs) and the table is not common space */
+	if (cpufeat & 1) {
+		printf("\t.%s\n", codeseg);
+		if (!unreachable)
+			printf("\tjmp L%u_e\n", n);
+	}
 	opcode(":Sw%u:", n);
 	opcode(".word %u", size);
 }
@@ -3004,7 +3014,11 @@ unsigned gen_node(struct node *n)
 		return 1;
 		/* Call a function by name */
 	case T_CALLNAME:
+		if (cpufeat & 1)
+			opcode("push psw ; bank");
 		opcode("call %s+%u", namestr(n->snum), v);
+		if (cpufeat & 1)
+			opcode("pop psw ; bank");
 		invalidate_all();
 		return 1;
 	case T_EQ:
@@ -3095,7 +3109,11 @@ unsigned gen_node(struct node *n)
 		}
 		break;
 	case T_FUNCCALL:
+		if (cpufeat & 1)
+			opcode("push psw ; bank");
 		opcode("call __callhl");
+		if (cpufeat & 1)
+			opcode("pop psw ; bank");
 		invalidate_all();
 		return 1;
 	case T_CONSTANT:

@@ -153,6 +153,10 @@ const char *z80feat[] = {
 	NULL
 };
 const char *def8080_32[] = { "__8080__", "__LARGE__", NULL };
+const char *feat8080[] = {
+	"banked",
+	NULL
+};
 
 const char *defz180[] = { "__z80__", "__z180__", NULL };
 const char *defbyte[] = { "__byte__", NULL };
@@ -162,6 +166,10 @@ const char *defsuper8[] = { "__super8__", NULL };
 const char *def1802[] = { "__1802__", NULL };
 const char *def1805[] = { "__1805__", NULL };
 const char *def8070[] = { "__8070__", NULL };
+const char *feat8070[] = {
+	"banked",
+	NULL
+};
 const char *def8086[] = { "__8086__", NULL };
 const char *def80186[] = { "__8086__", "__80186__", NULL };
 const char *defee200[] = { "__ee200__", "__cpu4__", NULL };
@@ -207,8 +215,8 @@ struct cpu_table cpu_rules[] = {
 	{ "6309", "6809", ".6809", "lib6809.a", "6809", def6809, ld6809, "6809" , 1, feat6809},
 	{ "6809", "6809", ".6809", "lib6809.a", "6809", def6809, ld6809, "6809" , 1, feat6809},
 	{ "68hc11", "hc11", ".6800", "lib68hc11.a", "68hc11", def68hc11, ld6800, "6811" , 1, NULL},
-	{ "8080", "8080", ".8080", "lib8080.a", "8080", def8080, ld8080, "8080" , 0, NULL},
-	{ "8085", "8080", ".8080", "lib8085.a", "8085", def8085, ld8080, "8085" , 0, NULL},
+	{ "8080", "8080", ".8080", "lib8080.a", "8080", def8080, ld8080, "8080" , 0, feat8080},
+	{ "8085", "8080", ".8080", "lib8085.a", "8085", def8085, ld8080, "8085" , 0, feat8080},
 	{ "sm83", "sm83", ".sm83", "libsm83.a", "sm83", defsm83, ldsm83, "sm83" , 0, NULL},
 	{ "z80", "z80", ".z80", "libz80.a", "z80", defz80, ld8080, "80" , 1, z80feat},
 	{ "z180", "z80", ".z80", "libz180.a", "z80", defz180, ld8080, "180" , 1, z80feat},
@@ -220,7 +228,7 @@ struct cpu_table cpu_rules[] = {
 	{ "super8", "super8", ".super8", "libsuper8.a", "super8", defsuper8, ld8080, "8" , 0, NULL},
 	{ "1802", "1802", ".1802", "lib1802.a", "1802", def1802, ld8080, "2" , 0, NULL},
 	{ "1805", "1802", ".1802", "lib1805.a", "1802", def1805, ld8080, "5" , 0, NULL},
-	{ "8070", "8070", ".8070", "lib8070.a", "8070", def8070, ld8070, "8070" , 0, NULL},
+	{ "8070", "8070", ".8070", "lib8070.a", "8070", def8070, ld8070, "8070" , 0, feat8070},
 	{ "8086", "8086", ".8086", "lib8086.a", "8086", def8086, ld8086, "86" , 0, NULL},
 	{ "80186", "8086", ".8086", "lib80186.a", "80186", def80186, ld8086, "186" , 0, NULL},
 	{ "ee200", "ee200", ".ee200", "libee200.a", "ee200", defee200, ldee200, "4", 0, NULL },

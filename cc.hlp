@@ -39,10 +39,19 @@ processors:
 -pic: Generate lbsr, and ,pcr references (incomplete)
 -usedp: The compiler will use dp internally (otherwise never touched)
 
+8070 feature options:
+-banked: generate code for a banked/overlay build
+
+8080 feature options:
+-banked: generate code for a banked/overlay build
+
+8085 feature options:
+-banked: generate code for a banked/overlay build
+
 z80/z180 feature options:
--mz80-banked: Z80 with banked code
--mz80-noix: do not touch IX
--mz80-noiy: do not touch IY
+-banked: Z80 with banked code
+-noix: do not touch IX
+-noiy: do not touch IY
 
 processors (debug):
 -m65c816: 65C816 16bit mode
