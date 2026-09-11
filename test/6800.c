@@ -1599,7 +1599,11 @@ static void m6800_push_interrupt(struct m6800 *cpu)
     m6800_push16(cpu, cpu->x);
     m6800_push(cpu, cpu->a);
     m6800_push(cpu, cpu->b);
-    m6800_push(cpu, cpu->p);
+    if (cpu->type == CPU_68HC11) {
+      m6800_push(cpu, cpu->p);
+    } else {
+      m6800_push(cpu, cpu->p | 0xC0);
+    }
 }
 
 static int m6800_vector(struct m6800 *cpu, uint16_t vector)
@@ -2184,7 +2188,7 @@ static int m6800_execute_one(struct m6800 *cpu)
             }
             if (tmp8 <= 0x03 && tmp2 <= 0x03 && (cpu->p & P_H)) {
                 tmpc = 1;
-                add = -0x66;
+                add = 0x66;
             }
         }
         cpu->a += add;
