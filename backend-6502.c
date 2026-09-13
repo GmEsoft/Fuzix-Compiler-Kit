@@ -1298,6 +1298,7 @@ static int pri_cchelp(register struct node *n, char *helper)
 		strcpy(buf, "l_");
 		strcat(buf, helper);
 		local_yop_s(n, buf);
+		set_reg(R_X, 1);
 		return 1;
 	}
 
@@ -1323,10 +1324,14 @@ static int pri_cchelp(register struct node *n, char *helper)
 		return pri8_help(n, helper);
 	}
 #endif
-	if (s == 1 && pri8_help(n, helper))
+	if (s == 1 && pri8_help(n, helper)) {
+		set_reg(R_X, 0);
 		return 1;
-	else if (s == 2 && pri16_help(n, helper))
+	}
+	else if (s == 2 && pri16_help(n, helper)) {
+		set_reg(R_X, 0);
 		return 1;
+	}
 	return 0;
 }
 

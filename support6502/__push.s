@@ -11,11 +11,14 @@
 	.export __pushffff
 	.export __pasp
 	.export __pderef
+	.export __pushspy
 
 __pderef:
 	jsr	__deref
 	jmp	__push
-
+__pushspy:
+	jsr	__adcspy
+	jmp	__push
 __pasp:
 	jsr	__asp
 	jmp	__push

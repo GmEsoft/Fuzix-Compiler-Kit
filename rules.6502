@@ -91,6 +91,16 @@
 =
 	jsr __push1
 
+	lda #0
+	jsr __pushc
+=
+	jsr __pushc0
+
+	lda #1
+	jsr __pushc
+=
+	jsr __pushc1
+
 	ldx #255
 	txa
 	jsr __push
@@ -203,3 +213,67 @@
 	jsr __push
 =
 	jsr __pushr4
+
+#
+#	Experiments in register bits
+#
+	lda (@reg1),y
+	tax
+	dey
+	lda (@reg1),y
+=
+	jsr __ldreg1y
+
+	lda (@reg2),y
+	tax
+	dey
+	lda (@reg2),y
+=
+	jsr __ldreg2y
+
+	lda (@reg3),y
+	tax
+	dey
+	lda (@reg3),y
+=
+	jsr __ldreg3y
+
+	lda (@reg4),y
+	tax
+	dey
+	lda (@reg4),y
+=
+	jsr __ldreg4y
+
+	sta (@reg1),y
+	iny
+	txa
+	sta (@reg1),y
+=
+	jsr __streg1y
+
+	sta (@reg2),y
+	iny
+	txa
+	sta (@reg2),y
+=
+	jsr __streg2y
+
+	sta (@reg3),y
+	iny
+	txa
+	sta (@reg3),y
+=
+	jsr __streg3y
+
+	sta (@reg4),y
+	iny
+	txa
+	sta (@reg4),y
+=
+	jsr __streg4y
+
+	jsr __adcspy
+	jsr __push
+=
+	jsr __pushspy
