@@ -25,8 +25,6 @@ DIVIS		.equ	5
 ;		the gap
 DIVID		.equ	11
 
-		.dp
-
 		.export div32x32
 		.code
 
