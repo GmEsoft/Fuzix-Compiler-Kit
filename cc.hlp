@@ -26,6 +26,8 @@ long options:
 processors:
 -m6303: Hitachi 6303
 -m6309: Hitachi 6309 (currently as 6809)
+-m6502:	6502 8bit, NMOS legal instructions
+-m65c02: 6502 8bit CMOS legal instructions
 -m6800: Motorola 6800 (compatible 6303, 6803, 68HC11)
 -m6803: Motorola 6803 (compatible 6303, 68HC11)
 -m6809: Motorola 6809 (compatible 6309)
@@ -34,6 +36,9 @@ processors:
 -m8085: Intel 8085
 -mz80: Zilog Z80 (compatible Z180, Z280, eZ80)
 -mz180: Zilog Z180
+
+6502/65C02 feature options:
+-banked: generate code for a banked/overlay build
 
 6809 feature options:
 -pic: Generate lbsr, and ,pcr references (incomplete)
@@ -55,8 +60,6 @@ z80/z180 feature options:
 
 processors (debug):
 -m65c816: 65C816 16bit mode
--m6502:	6502 8bit, NMOS legal instructions
--m65c02: 6502 8bit CMOS legal instructions
 -m68hc11: Motorola 68HC11
 -mnova: DG Nova
 -mnova3: DG Nova 3 and later (with stack hardware)

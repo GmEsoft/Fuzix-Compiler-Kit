@@ -3739,6 +3739,12 @@ unsigned gen_node(struct node *n)
 	case T_CALLNAME:
 		invalidate_regs();
 		output("jsr %s+%u", namestr(n->snum), n->value);
+		/* Optimal is a 3 byte jump but that's a lot of reloc noise */
+		if (cpufeat & 1) {
+			output("jmp X%u", ++xlabel);
+			output("nop");
+			label("X%u:", xlabel);
+		}
 		return 1;
 	case T_EQ:
 		/* store XA in top of stack addr  .. ugly */
@@ -3830,6 +3836,8 @@ unsigned gen_node(struct node *n)
 		return 0;
 	case T_FUNCCALL:
 		/* For now just helper it */
+		/* Nothing special needed for banked as it will vector into
+		   the stub code */
 		return 0;
 	case T_DEREF:
 		if (size == 4)
