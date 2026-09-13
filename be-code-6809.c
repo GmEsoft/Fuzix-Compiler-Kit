@@ -1150,9 +1150,10 @@ void add_d_const(uint16_t n)
 
 	inv_d_node();
 
-	if (lo)
+	if (lo) {
 		output("addd #%u", n);
-	else
+		a_valid = a_valid && b_valid;
+	} else
 		output("adda #%u", hi);
 
 	if (BYTE(b_val + lo) < b_val)
