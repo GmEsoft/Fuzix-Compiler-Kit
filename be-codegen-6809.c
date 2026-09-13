@@ -97,7 +97,7 @@ static unsigned is_simple(struct node *n)
 		return 10;
 	/* These are as easy but we also have some helpers that benefit
 	   most from right constant */
-	if (op == T_NAME)
+	if (op == T_NAME && !cpu_pic)
 		return 9;
 	if (op == T_NREF)
 		return 9;
@@ -491,6 +491,8 @@ unsigned gen_direct(struct node *n)
 		}
 		return write_opd(r, "add", 0);
 	case T_MINUS:
+		/* FIXME: can just flip top bit and add for float but
+		   not useful ? */
 		if (r->op == T_CONSTANT && r->type != FLOAT) {
 			if (s == 4)
 				return gen_add32(-r->value);
@@ -939,11 +941,11 @@ unsigned memop_const(struct node *n, const char *op, unsigned nr, unsigned pre)
 	switch(l->op) {
 	case T_NAME:
 		if (pre == 1)
-			output("Bldb %s+%u\n", namestr(l->snum), v);
-		sprintf(workbuf, "BM%s %s+%u", op, namestr(l->snum), v);
+			output("Bldb %s+%u%s\n", namestr(l->snum), v, pic_op);
+		sprintf(workbuf, "BM%s %s+%u%s", op, namestr(l->snum), v, pic_op);
 		repeated_op(ct, workbuf);
 		if (pre == 2) {
-			output("BZldb %s+%u", namestr(l->snum), v);
+			output("BZldb %s+%u%s", namestr(l->snum), v, pic_op);
 			set_ds_node_ptr(l);
 		}
 		if (pre)
@@ -991,7 +993,7 @@ unsigned memop_shift(struct node *n, const char *op, const char *opu)
 		return 0;
 	switch(l->op) {
 	case T_NAME:
-		sprintf(workbuf, "M%s %s+%u", op, namestr(l->snum), v);
+		sprintf(workbuf, "M%s %s+%u%s", op, namestr(l->snum), v, pic_op);
 		repeated_op(rv, workbuf);
 		return 1;
 	case T_ARGUMENT:
@@ -1305,7 +1307,7 @@ unsigned gen_shortcut(struct node *n)
 		codegen_lr(r);
 //		output_nf(";bool");
 		/* Constant result ? */
-		if (cmp_known(n, s, 1, 0))
+		if (cmp_known(n, get_size(r->type), 1, 0))
 			return 1;
 		/* The thing to bool is USECC but we are not. This should not happen */
 		if (!(n->flags & CCONLY) && (r->flags & USECC) && !(r->flags & ISBOOL)) {
@@ -1374,7 +1376,7 @@ unsigned gen_shortcut(struct node *n)
 		codegen_lr(r);
 //		output_nf(";bang");
 		/* Constant result ? */
-		if (cmp_known(n, s, 2, 0)) {
+		if (cmp_known(n, get_size(r->type), 2, 0)) {
 			output_nf(";known");
 			return 1;
 		}

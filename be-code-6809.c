@@ -1375,7 +1375,6 @@ static char *addr_form(register struct node *r, unsigned off, unsigned s)
 	case T_NREF:
 		sprintf(addr, "%s+%u%s", namestr(r->snum), v + off, pic_op);
 		return addr;
-	/* Only occurs on 6809 */
 	case T_RDEREF:
 		sprintf(addr, "%u,u", r->snum + off);
 		return addr;
@@ -1390,7 +1389,7 @@ static char *addr_form(register struct node *r, unsigned off, unsigned s)
 unsigned can_load_d_nox(struct node *n)
 {
 	register unsigned op = n->op;
-	if (op == T_CONSTANT || op == T_NAME || op == T_NREF)
+	if (op == T_CONSTANT || (cpu_pic == 0 && op == T_NAME) || op == T_NREF)
 		return 1;
 	return 0;
 }
@@ -1400,6 +1399,9 @@ static unsigned op8r_on_node(struct node *r, char reg, const char *op, unsigned 
 {
 	unsigned v = r->value;
 	unsigned store = 0;
+
+	if (r->op == T_NAME && cpu_pic)
+		return 0;
 
 	switch(r->op) {
 	case T_LSTORE:
@@ -1414,9 +1416,9 @@ static unsigned op8r_on_node(struct node *r, char reg, const char *op, unsigned 
 		break;
 	case T_NSTORE:
 		store = 1;
+	case T_NAME:
 	case T_CONSTANT:
 	case T_NREF:
-	case T_NAME:
 	case T_RDEREF:
 		output("%s%c %s", op, reg, addr_form(r, off, 1));
 		break;
@@ -1442,6 +1444,9 @@ unsigned op16_on_node(struct node *r, const char *op, const char *op2, unsigned 
 	unsigned v = r->value;
 	unsigned store = 0;
 
+	if (r->op == T_NAME && cpu_pic)
+		return 0;
+
 	switch(r->op) {
 	case T_LSTORE:
 		store = 1;
@@ -1457,8 +1462,8 @@ unsigned op16_on_node(struct node *r, const char *op, const char *op2, unsigned 
 		break;
 	case T_NSTORE:
 		store = 1;
-	case T_NREF:
 	case T_NAME:
+	case T_NREF:
 	case T_RDEREF:
 		output("%sa %s", op, addr_form(r, off, 1));
 		output("%sb %s", op2, addr_form(r, off + 1, 1));
@@ -1492,11 +1497,26 @@ unsigned op16d_on_node(struct node *r, const char *op, unsigned off)
 			return 0;
 		output("%sd [%u,s]", op, off + v + sp);
 		break;
+	case T_NAME:
+		/* Name vaule as constant, not something we can
+		   do directly */
+		if (cpu_pic) {
+			if (strcmp(op, "Zld") == 0) {
+				load_x_with(r);
+				tfr_x_d();
+				break;
+			}
+			/* Need to fix other cases like adding a sym name and
+			   more generally don't treat NAME as a valid right
+			   side for shortcuts in pic mode */
+			return 0;
+		}
+		output("%sd %s", op, addr_form(r, off, 2));
+		break;
 	case T_NSTORE:
 		store = 1;
 	case T_CONSTANT:
 	case T_NREF:
-	case T_NAME:
 	case T_RDEREF:
 		output("%sd %s", op, addr_form(r, off, 2));
 		break;
@@ -1829,9 +1849,15 @@ static unsigned load_r_with(char reg, struct node *r)
 	case T_LREF:
 		output("ld%c %u,s", reg, v + sp);
 		break;
+	case T_NAME:
+		/* Except for D we can load name forms directly */
+		if (cpu_pic) {
+			output("lea%c %s+%u,pc", reg, namestr(r->snum), v);
+			break;
+		}
+		/* Otherwise it's the usual story */
 	case T_CONSTANT:
 	case T_NREF:
-	case T_NAME:
 	case T_RDEREF:
 		output("ld%c %s", reg, addr_form(r, 0, 2));
 		break;
@@ -1879,6 +1905,9 @@ unsigned load_u_with(struct node *r)
 unsigned cmp_known(struct node *n, unsigned s, unsigned t, unsigned v)
 {
 	unsigned match = 1;
+	/* We don't yet track Y well enough TOOD */
+	if (s == 4)
+		return 0;
 	if (n->flags & CCFIXED)
 		return 0;
 	if (!(n->flags & CCONLY))
@@ -1907,6 +1936,7 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *sop, unsigned t
 	unsigned zop = 0;
 	const char *op = sop;
 
+	printf(";cmp_direct %u\n", s);
 	if (s == 4)
 		return 0;
 

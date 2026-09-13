@@ -59,9 +59,13 @@ void gen_switch(unsigned n, unsigned type)
 {
 	/* Can't do nicely with output but should be fine */
 	output("ldx #Sw%u", n);
-	printf("\t%s __switch", jmp_op);
+	if (cpu_pic)
+		printf("\tlbra __picswitch");
+	else
+		printf("\tjmp __switch");
 	helper_type(type, 0);
 	putchar('\n');
+	unreachable = 1;
 }
 
 void gen_switchdata(unsigned n, unsigned size)
@@ -79,7 +83,10 @@ void gen_case_label(unsigned tag, unsigned entry)
 
 void gen_case_data(unsigned tag, unsigned entry)
 {
-	output_nf(".word Sw%d_%d", tag, entry);
+	if (cpu_pic)
+		output_nf(".pcrel Sw%d_%d", tag, entry);
+	else
+		output_nf(".word Sw%d_%d", tag, entry);
 }
 
 void gen_data_label(const char *name, unsigned align)
