@@ -200,11 +200,13 @@ void set_d_node(struct node *n)
 		if (get_size(n->type) == 2)
 			set_a(BYTE(WORD(n->value) >> 8));
 	}
+	rnode[R_DS].op = 0;
 }
 
 void set_d_node_ptr(struct node *n)
 {
 	set_r_node_ptr(rnode + R_D, n);
+	rnode[R_DS].op = 0;
 }
 
 unsigned d_holds_node(struct node *n)
