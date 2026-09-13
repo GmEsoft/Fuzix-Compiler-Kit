@@ -684,6 +684,8 @@ void convert_S_to_s(char *path)
 {
 	char *tmp;
 	build_arglist(make_lib_name("cpp", ""));
+	add_argument_list("-I", &inclist);
+	add_argument_list("-D", &deflist);
 	add_argument("-E");
 	add_argument(path);
 	tmp = xstrdup(path, 0);
