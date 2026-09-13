@@ -59,7 +59,7 @@ makeops: makeops.c
 .c.o:
 	fcc -m6502 -O -c $<
 
-__adcspy.s: makeops
+$(GEN): makeops
 	./makeops
 
 lib6502.a: $(OBJ) $(GEN)
