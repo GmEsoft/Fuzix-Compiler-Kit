@@ -443,3 +443,8 @@ L%1:
 	ld%1 %2
 =
 	ld%1 %2
+
+# Comes up now and then with logic ops
+	exg d,y
+	exg d,y
+=
