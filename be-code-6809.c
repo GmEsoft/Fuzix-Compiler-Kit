@@ -1999,31 +1999,55 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *sop, unsigned t
 /*
  *	Do fast multiplies were we can
  */
-int count_mul_cost(unsigned n)
+static int mul_stack_cost(unsigned n)
 {
 	int cost = 0;
-	if ((n & 0xFF) == 0) {
-		n >>= 8;
-		cost += 3;		/* tfr a,b clrb */
-	}
 	while(n > 1) {
 		if (n & 1)
-			cost += 4;	/* std s++, addd ,--s */
+			cost += 4;	/* pshs d addd ,s++ */
 		n >>= 1;
-		cost += 2;		/* lslb rola */
+		cost += 2;
 	}
 	return cost;
 }
 
-/* We can probably do better on 6809 TODO */
+int count_mul_cost(unsigned n)
+{
+	int cost = 0;
+	if (a_valid && b_valid)
+		return 1;	/* ldd # */
+	if ((n & 0xFF) == 0) {
+		n >>= 8;
+		cost += 3;		/* tfr a,b clrb */
+	}
+	if (a_valid && a_val == 0 && n < 256) {
+		return cost + 3;	/* lda #; mul */
+	}
+	return cost + mul_stack_cost(n);
+}
+
 /* Write the multiply for any value > 0 */
 void write_mul(unsigned n)
 {
 	unsigned pops = 0;
+	if (a_valid && b_valid) {
+		unsigned m = (a_val << 8) | b_val;
+		load_d_const((n * m) & 0xFFFF);
+		return;
+	}
 	if ((n & 0xFF) == 0) {
+		if (b_valid && b_val == 0) {
+			load_d_const(0);
+			return;
+		}
 		load_a_b();
 		load_b_const(0);
 		n >>= 8;
+	}
+	if (mul_stack_cost(n) > 5 && a_valid && a_val == 0 && n < 256) {
+		load_a_const(n);
+		output("Dmul");
+		return;
 	}
 	while(n > 1) {
 		if (n & 1) {
