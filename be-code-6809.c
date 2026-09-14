@@ -1020,7 +1020,8 @@ void gen_fcall(struct node *n, unsigned vararg)
 	stackop = 0;
 	rused = 0;
 	/* Varargs we push all arguments */
-	if (vararg) {
+	/* Same with banked as we will need D for bank switching */
+	if (vararg || (cpufeat & 4)) {
 		do_fcall(n);
 		/* No adjustment needed */
 		*astk++ = 0;

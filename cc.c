@@ -147,6 +147,7 @@ const char *def6809[] = { "__6809__", NULL };
 const char *feat6809[] = {
 	"pic",
 	"usedp",
+	"banked",
 	NULL
 };
 const char *def8080[] = { "__8080__", NULL };
