@@ -1209,9 +1209,9 @@ unsigned gen_shortcut(struct node *n)
 	}
 
 	if (n->op == T_CALLNAME) {
+		gen_fcall(l, n->value);
 		if (cpufeat & 4)	/* banked */
 			push_d();
-		gen_fcall(l, n->value);
 		output("%s %s", jsr_op, namestr(n->snum));
 		if (cpufeat & 4)
 			pop_d();
