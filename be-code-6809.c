@@ -682,7 +682,9 @@ void gen_frame(unsigned size, unsigned aframe, unsigned s1)
 	argbase = ARGBASE;
 	frame_len = size;
 
-	if (s1 != VOID && !(func_flags & F_VARARG))
+	/* Banked systems all the call arguments are stacked, as with
+	   varargs */
+	if (s1 != VOID && !(func_flags & F_VARARG) && !(cpufeat & 4))
 		s1 = get_size(s1);
 	else
 		s1 = 0;
@@ -993,8 +995,6 @@ static void do_fcall(struct node *n)
 static void do_topcall(struct node *n)
 {
 	unsigned s;
-	/* How to tell if varargs ? */
-	/* TODO */
 	/* Multiple arguments */
 	if (n->op == T_ARGCOMMA) {
 		do_fcall(n->left);
