@@ -52,6 +52,24 @@ GEN =  __adcspy.o __adctmpy.o __sbcspy.o __sbctmpy.o __andspy.o __andtmpy.o __eo
        __pushly9.o __pushly10.o __pushly11.o __pushly12.o \
        __pushly13.o __pushly14.o __pushly15.o __pushly16.o
     
+GENSRC = __adcspy.s __adctmpy.s __sbcspy.s __sbctmpy.s __andspy.s __andtmpy.s __eorspy.s __eortmpy.s \
+       __ldaspy.s __ldatmpy.s __oraspy.s __oratmpy.s __staspy.s __statmpy.s \
+       __adctmp.s __sbctmp.s __andtmp.s __oratmp.s __eortmp.s \
+       __adceqtmp.s __andeqtmp.s __oraeqtmp.s __eoreqtmp.s \
+       __adceqtmpc.s __andeqtmpc.s __eoreqtmpc.s __oraeqtmpc.s \
+       __gloy1.s __gloy2.s __gloy3.s __gloy4.s \
+       __gloy5.s __gloy6.s __gloy7.s __gloy8.s \
+       __gloy9.s __gloy10.s __gloy11.s __gloy12.s \
+       __gloy13.s __gloy14.s __gloy15.s __gloy16.s \
+       __gloytmp1.s __gloytmp2.s __gloytmp3.s __gloytmp4.s \
+       __gloytmp5.s __gloytmp6.s __gloytmp7.s __gloytmp8.s \
+       __gloytmp9.s __gloytmp10.s __gloytmp11.s __gloytmp12.s \
+       __gloytmp13.s __gloytmp14.s __gloytmp15.s __gloytmp16.s \
+       __pushly1.s __pushly2.s __pushly3.s __pushly4.s \
+       __pushly5.s __pushly6.s __pushly7.s __pushly8.s \
+       __pushly9.s __pushly10.s __pushly11.s __pushly12.s \
+       __pushly13.s __pushly14.s __pushly15.s __pushly16.s
+    
 makeops: makeops.c
 	$(CC) makeops.c -o makeops
 
@@ -61,7 +79,7 @@ makeops: makeops.c
 .c.o:
 	fcc -m6502 -O -c $<
 
-$(GEN): makeops
+$(GENSRC): makeops
 	./makeops
 
 lib6502.a: $(OBJ) $(GEN)
