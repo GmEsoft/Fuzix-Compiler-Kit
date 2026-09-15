@@ -1262,6 +1262,11 @@ void make_d_x(void)
 	output_nf("tfr x,d");
 }
 
+void push_x(void)
+{
+	output_nf("pshs x");
+}
+
 void pop_x(void)
 {
 	output_nf("Xpuls x");

@@ -101,6 +101,7 @@ extern void swap_d_y(void);
 extern void swap_d_x(void);
 extern void make_x_d(void);
 extern void make_d_x(void);
+extern void push_x(void);
 extern void pop_x(void);
 extern void gen_cleanup(struct node *n);
 extern void adjust_s(int n, unsigned save_d);

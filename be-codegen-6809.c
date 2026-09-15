@@ -1190,19 +1190,19 @@ unsigned gen_shortcut(struct node *n)
 		else {
 			sp += 2;
 			if (!(cpufeat & 4))
-				push_d();
+				push_x();
 			codegen_lr(r);
 			v = 0;
 			make_x_d();
 			if (!(cpufeat & 4))
-				pop_d();
+				pop_x();
 			sp -= 2;
 		}
 		if (cpufeat & 4)	/* banked */
-			push_d();
+			push_x();
 		output("jsr %d,x", v);
 		if (cpufeat & 4)	/* banked */
-			pop_d();
+			pop_x();
 		invalidate_all();
 		trackf = NULL;
 		return 1;
@@ -1211,10 +1211,10 @@ unsigned gen_shortcut(struct node *n)
 	if (n->op == T_CALLNAME) {
 		gen_fcall(l, n->value);
 		if (cpufeat & 4)	/* banked */
-			push_d();
+			push_x();
 		output("%s %s", jsr_op, namestr(n->snum));
 		if (cpufeat & 4)
-			pop_d();
+			pop_x();
 		invalidate_all();
 		trackf = NULL;
 		return 1;

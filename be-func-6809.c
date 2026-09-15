@@ -70,6 +70,11 @@ void gen_switch(unsigned n, unsigned type)
 
 void gen_switchdata(unsigned n, unsigned size)
 {
+	if (cpufeat & 4) {	/* Banked */
+		output_nf(".%s", codeseg);
+		if (!unreachable)
+			output_nf("bra L%u_e", n);
+	}
 	outlabel("Sw%u", n);
 	output_nf(".word %d", size);
 }
