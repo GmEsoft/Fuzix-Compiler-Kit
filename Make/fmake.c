@@ -23,7 +23,7 @@
  *	12-Feb-91	steve: add $SRCPATH source path searching.
  *	 1-Nov-91	steve: fix bug in nextc() to handle "\n\t\n" correctly
  *      29-Sep-92	michael: fix problem with defining a rule that also
- *				exists in the ACTIONFILE.	
+ *				exists in the ACTIONFILE.
  *      08-Oct-92	michael: fix problem with making targets with no
  *				specified actions (empty productions).
  */
@@ -523,15 +523,15 @@ void inpath(char *file, ...)
 	va_start(ap, file);
 
 	cp = NULL;
-	for (vp = va_arg(ap, char *); vp != NULL;)
+	for (vp = va_arg(ap, char *); vp != NULL; vp = va_arg(ap, char *))
 		if (access(vp, R_OK) >= 0) {
 			cp = vp;
 			break;
 		}
 	va_end(ap);
-	if ( ! cp) {
+	if (!cp && srcpath) {
 		va_start(ap, file);
-		for (vp = va_arg(ap, char *); vp != NULL; vp ++)
+		for (vp = va_arg(ap, char *); vp != NULL; vp = va_arg(ap, char *))
 			if ((cp = path(srcpath, vp, R_OK)) != NULL)
 				break;
 		va_end(ap);
@@ -813,7 +813,7 @@ void make(SYM *s)
 	type=s->type;
 	s->type=T_DONE;
 	s->moddate=getmdate(name);
-	for(dep=s->deplist;dep!=NULL;dep=dep->next)		
+	for(dep=s->deplist;dep!=NULL;dep=dep->next)
 		make(dep->symbol);
 	if (type==T_DETAIL) {
 		implicit(s, "", 0);
@@ -1232,8 +1232,8 @@ int main(int argc, char *argv[])
 		int i;
 
 		for (i=0;i<numtargets;i++)
-			make(lookup(dtarget[i]));		
-	} else
+			make(lookup(dtarget[i]));
+	} else if (deftarget)
 		make(lookup(deftarget));
 
 	exit(ALLOK);

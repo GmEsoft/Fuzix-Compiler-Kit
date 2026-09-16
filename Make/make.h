@@ -16,7 +16,7 @@
 #include <time.h>
 #include <err.h>
 
-#define MAKEPATH	"/opt/fcc/lib:/lib:/usr/lib"
+#define MAKEPATH	"/opt/fcc/lib"
 
 /* Exit codes. */
 #define	ALLOK	0	/* all ok, if -q option then all uptodate */
