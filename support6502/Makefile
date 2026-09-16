@@ -32,11 +32,12 @@ OBJ =  __addysp.o __addyasp.o __subysp.o __asp.o __yasp.o \
       __lderef.o __lderefc.o __lderefya.o __lderefcya.o \
       __reg.o __reql1.o __reql2.o __reql3.o __reql4.o \
       __ldreg1y.o __ldreg2y.o __ldreg3y.o __ldreg4y.o \
-      __streg1y.o __streg2y.o __streg3y.o __streg4y.o
+      __streg1y.o __streg2y.o __streg3y.o __streg4y.o \
+      __sbctmpy.o __sbctmp.o
 
-GEN =  __adcspy.o __adctmpy.o __sbcspy.o __sbctmpy.o __andspy.o __andtmpy.o __eorspy.o __eortmpy.o \
+GEN =  __adcspy.o __adctmpy.o __sbcspy.o __andspy.o __andtmpy.o __eorspy.o __eortmpy.o \
        __ldaspy.o __ldatmpy.o __oraspy.o __oratmpy.o __staspy.o __statmpy.o \
-       __adctmp.o __sbctmp.o __andtmp.o __oratmp.o __eortmp.o \
+       __adctmp.o __andtmp.o __oratmp.o __eortmp.o \
        __adceqtmp.o __andeqtmp.o __oraeqtmp.o __eoreqtmp.o \
        __adceqtmpc.o __andeqtmpc.o __eoreqtmpc.o __oraeqtmpc.o \
        __gloy1.o __gloy2.o __gloy3.o __gloy4.o \
@@ -52,9 +53,9 @@ GEN =  __adcspy.o __adctmpy.o __sbcspy.o __sbctmpy.o __andspy.o __andtmpy.o __eo
        __pushly9.o __pushly10.o __pushly11.o __pushly12.o \
        __pushly13.o __pushly14.o __pushly15.o __pushly16.o
     
-GENSRC = __adcspy.s __adctmpy.s __sbcspy.s __sbctmpy.s __andspy.s __andtmpy.s __eorspy.s __eortmpy.s \
+GENSRC = __adcspy.s __adctmpy.s __sbcspy.s __andspy.s __andtmpy.s __eorspy.s __eortmpy.s \
        __ldaspy.s __ldatmpy.s __oraspy.s __oratmpy.s __staspy.s __statmpy.s \
-       __adctmp.s __sbctmp.s __andtmp.s __oratmp.s __eortmp.s \
+       __adctmp.s __andtmp.s __oratmp.s __eortmp.s \
        __adceqtmp.s __andeqtmp.s __oraeqtmp.s __eoreqtmp.s \
        __adceqtmpc.s __andeqtmpc.s __eoreqtmpc.s __oraeqtmpc.s \
        __gloy1.s __gloy2.s __gloy3.s __gloy4.s \
