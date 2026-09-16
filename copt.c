@@ -540,8 +540,10 @@ int main(int argc, char** argv)
             debug = 1;
         else if ((fp = fopen(argv[i], "r")) == NULL)
             error("copt: can't open patterns file\n");
-        else
+        else {
             init(fp);
+            fclose(fp);
+        }
 
     getlst(stdin, "", &head, &tail);
 
@@ -686,7 +688,7 @@ int rpn_eval(const char* expr, char** vars)
     if ( sp != 1 ) {
         int i;
         fprintf(stderr,"Exiting with a stack level of %d\n",sp);
-        for ( i = 0; i < sp; i++ ) { 
+        for ( i = 0; i < sp; i++ ) {
             fprintf(stderr,"Stack level %d -> %d\n",i, stack[i]);
         }
     }
