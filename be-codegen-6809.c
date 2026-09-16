@@ -1190,12 +1190,12 @@ unsigned gen_shortcut(struct node *n)
 		else {
 			sp += 2;
 			if (!(cpufeat & 4))
-				push_x();
+				push_d();
 			codegen_lr(r);
 			v = 0;
 			make_x_d();
 			if (!(cpufeat & 4))
-				pop_x();
+				pop_d();
 			sp -= 2;
 		}
 		if (cpufeat & 4)	/* banked */
