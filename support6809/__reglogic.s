@@ -1,7 +1,7 @@
 
 	.export __regand
 	.export __regor
-	.export __regeor
+	.export __regxor
 
 	.code
 __regand:
@@ -18,7 +18,7 @@ __regor:
 	tfr d,u
 	rts
 
-__regeor:
+__regxor:
 	pshs u
 	eora ,s+
 	eorb ,s+
