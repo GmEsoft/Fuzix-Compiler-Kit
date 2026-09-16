@@ -113,6 +113,7 @@ struct objhead liblist;
 struct objhead inclist;
 struct objhead deflist;
 struct objhead libpathlist;
+struct objhead peeplist;
 struct objhead ccargs;		/* Arguments to pass on to the compiler */
 
 struct cpu_table {
@@ -681,6 +682,7 @@ void convert_c_to_s(char *path)
 	p = xstrdup(make_lib_name("copt", ""), 0);
 	build_arglist(p);
 	add_argument(make_lib_name("rules.", cpuset));
+	add_argument_list(NULL, &peeplist);
 	redirect_in(tmp);
 	redirect_out(pathmod(path, ".#", ".s", 2, 2));
 	run_command();
@@ -894,6 +896,15 @@ char **add_macro(char **p)
 	return p;
 }
 
+char **add_peephole(char **p)
+{
+	if ((*p)[2])
+		append_obj(&peeplist, *p + 2, 0);
+	else
+		append_obj(&peeplist, *++p, 0);
+	return p;
+}
+
 char **add_library(char **p)
 {
 	if ((*p)[2])
@@ -1059,6 +1070,9 @@ int main(int argc, char *argv[]) {
 			break;
 		case 'D':
 			p = add_macro(p);
+			break;
+		case 'p':
+			p = add_peephole(p);
 			break;
 		case 'i':
 /*                    split_id();*/
