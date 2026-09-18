@@ -78,7 +78,8 @@ void gen_frame(unsigned size,  unsigned aframe, unsigned t1)
 		argbase += 2;
 	} else {
 		/* IY is free use it as a frame pointer ? */
-		if (!optsize && size + aframe > 4) {
+		/* In the cpufeat case z80-usefp IY is reserved for frame */
+		if ((cpufeat & 8) || (!optsize && size + aframe > 4)) {
 			argbase += 2;
 			printf("\tpush iy\n");
 			/* Remember we need to restore IY */

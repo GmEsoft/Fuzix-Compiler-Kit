@@ -131,8 +131,8 @@ unsigned target_register(unsigned type, unsigned storage)
 void target_reginit(void)
 {
 	bc_free = 1;
-	if (!(cpufeat & 2))	/* --no-ix */
+	if (!(cpufeat & 2))	/* -noix */
 		ix_free = 1;
-	if (!(cpufeat & 4))	/* --no-iy */
+	if (!(cpufeat & 12))	/* -noiy or -usefp */
 		iy_free = 1;
 }

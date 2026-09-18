@@ -159,6 +159,7 @@ const char *z80feat[] = {
 	"banked",
 	"noix",
 	"noiy",
+	"usefp",
 	NULL
 };
 const char *def8080_32[] = { "__8080__", "__LARGE__", NULL };
