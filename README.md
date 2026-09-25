@@ -18,12 +18,11 @@ trees from cc1.
 
 ## Status
 
-The compiler is currently used to build the Fuzix OS for 8080, 8085 and Z80
-and can cross build itself to run natively on these systems. The core code
-should be reasonably stable. There is a lot of performance work to do on
-the compiler itself and there are still a couple of deviations from spec
-that would be nice to fix. The backends for 8080/5/Z80 should be fairly
-stable but are being used to experiment with improvements.
+The compiler is currently used to build the Fuzix OS for 6303, 6502, 6800,
+6803, 8080, 8085, Z80 and Z180 and can cross build itself to run natively on
+the bigger of these systems. The core code should be reasonably stable. There
+is a lot of performance work to do on the compiler itself and there are still
+a couple of deviations from spec that would be nice to fix.
 
 The other processor trees are very much a work in progress.
 
@@ -152,11 +151,8 @@ machine.
 
 ### 8070
 
-Minimal support for the INS807x series of processors. Passes the test suites
-but does not always make good use of the CPU features as it's hard to figure
-out an effective way to use p3.
-Needs register tracking and some smarts about picking p2 or p3 adding to get
-code the quality up. Code density is still reasonable thanks to the 16bit
+Base support for the INS807x series of processors and used to build Fuzix
+on the 8070 rcbus card. Code density is reasonable thanks to the 16bit
 operations and stack relative load and store.
 
 ### 8080/8085
