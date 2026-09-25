@@ -30,7 +30,7 @@ The other processor trees are very much a work in progress.
 
 As a cross compiler the front end expects it all to live in `/opt/fcc/`. The
 tool chain provides the compiler front end and phases. For cpp for now it
-uses the gcc preprocessor on Linux and DECUS cpp on Fuzix.
+uses a variant of the DECUS cpp.
 
 Either make the `/opt/fcc` directory and make it owned by your user or do
 the install phase with appropriate privileges.
