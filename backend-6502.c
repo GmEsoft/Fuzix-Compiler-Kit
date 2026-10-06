@@ -2101,6 +2101,13 @@ void gen_switch(unsigned n, unsigned type)
 
 void gen_switchdata(unsigned n, unsigned size)
 {
+	/* On a banked system we interleave the code and table so that
+	   its cleaner (no stubs) and the table is not common space */
+	if (cpufeat & 1) {
+		printf("\t.%s\n", codeseg);
+		if (!unreachable)
+			printf("\tjmp L%u_e\n", n);
+	}
 	label("Sw%u", n);
 	if (size > 255)
 		error("sw");
@@ -3750,7 +3757,7 @@ unsigned gen_node(struct node *n)
 		if (cpufeat & 1) {
 			output("jmp X%u", ++xlabel);
 			output("nop");
-			label("X%u:", xlabel);
+			label("X%u", xlabel);
 		}
 		return 1;
 	case T_EQ:
