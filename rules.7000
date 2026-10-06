@@ -97,3 +97,13 @@
 	sta *r5
 =
 	call @__stwork
+
+	adc %0,r14
+	br @__cleanup_%1
+=
+	br @__cleanupa_%1
+
+	adc %0,r14
+	br @__cleanupb
+=
+	br @__cleanupba
