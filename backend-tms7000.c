@@ -1731,7 +1731,7 @@ void gen_exitjp(unsigned size)
 		load_r_const(R_B, size, 1);
 		printf("\tbr @__cleanupb\n");
 	} else	/* Helpers are named correctly by size */
-		printf("\tbr @__cleanup%u\n", size - 1);
+		printf("\tbr @__cleanup_%u\n", size - 1);
 	unreachable = 1;
 }
 
@@ -2279,7 +2279,8 @@ unsigned gen_direct(struct node *n)
 			if (v == 0)
 				helper(n, "cceqconst0");
 			else if (v < 256) {
-				load_r_constb(R_WORK + size - 1, v);
+				/* Use B for compactness */
+				load_r_constb(1, v);
 				helper(n, "cceqconstb");
 			} else {
 				load_r_const(R_WORK, v , size);
@@ -2316,7 +2317,7 @@ unsigned gen_direct(struct node *n)
 			if (v == 0)
 				helper_s(n, "cclteqconst0");
 			else if (v < 256) {
-				load_r_constb(R_WORK + size - 1, v);
+				load_r_constb(1, v);
 				helper_s(n, "cclteqconstb");
 			} else {
 				load_r_const(R_WORK, v , size);
@@ -2337,7 +2338,7 @@ unsigned gen_direct(struct node *n)
 			if (v == 0)
 				helper_s(n, "ccltconst0");
 			else if (v < 256) {
-				load_r_constb(R_WORK + size - 1, v);
+				load_r_constb(1, v);
 				helper_s(n, "ccltconstb");
 			} else {
 				load_r_const(R_WORK, v , size);
@@ -2358,7 +2359,7 @@ unsigned gen_direct(struct node *n)
 			if (v == 0)
 				helper_s(n, "ccgteqconst0");
 			else if (v < 256) {
-				load_r_constb(R_WORK + size - 1, v);
+				load_r_constb(1, v);
 				helper_s(n, "ccgteqconstb");
 			} else {
 				load_r_const(R_WORK, v , size);
@@ -2393,7 +2394,7 @@ unsigned gen_direct(struct node *n)
 			if (v == 0)
 				helper_s(n, "ccgtconst0");
 			else if (v < 256) {
-				load_r_constb(R_WORK + size - 1, v);
+				load_r_constb(1, v);
 				helper_s(n, "ccgtconstb");
 			} else {
 				load_r_const(R_WORK, v , size);
@@ -2414,7 +2415,7 @@ unsigned gen_direct(struct node *n)
 			if (v == 0)
 				helper(n, "ccneconst0");
 			else if (v < 256) {
-				load_r_constb(R_WORK + size - 1, v);
+				load_r_constb(1, v);
 				helper(n, "ccneconstb");
 			} else {
 				load_r_const(R_WORK, v , size);
@@ -2654,7 +2655,8 @@ static unsigned argstack_helper(struct node *n, unsigned sz)
 		/* We want to point the index at the end of the value as we have decd
 		   but not incd */
 		if (v + sp + sz - 1 < 256) {
-			load_r_constb(R_INDEX + 1, v + sp + sz - 1);
+			/* For compacter code use B */
+			load_r_constb(1, v + sp + sz - 1);
 			if (sz == 2)
 				printf("\tcall @__pushln\n");
 			else

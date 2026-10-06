@@ -11,8 +11,11 @@
 
 __ccltconst0u:
 	clr r11
+	clr r10
+	jmp __ccltconstu
 __ccltconstbu:
 	clr r10
+	mov b,r11
 	jmp __ccltconstu
 __ccltu:
 	call @__pop10

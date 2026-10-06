@@ -89,9 +89,9 @@ static unsigned rused;
 /* Just hand out register pairs for anything byte or word sized */
 unsigned target_register(unsigned type, unsigned storage)
 {
-	return 0;
+	/* We need to know the optimisation level really
+	   as we want registers except for -Os */
 #if 0
-/* TODO */
 	/* No long or floats */
 	if (type >= CLONG && !PTR(type))
 		return 0;
@@ -104,6 +104,8 @@ unsigned target_register(unsigned type, unsigned storage)
 	else
 		arg_flags |= F_REG(rused);
 	return rused;
+#else
+	return 0;
 #endif
 }
 

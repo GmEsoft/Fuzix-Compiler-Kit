@@ -17,6 +17,7 @@ __ccneconstbl:
 	clr	r10
 	clr	r11
 	clr	r12
+	mov	b,r13
 __ccneconstl:
 	cmp	r2,r10
 	jnz	true

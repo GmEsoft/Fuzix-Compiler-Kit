@@ -1,41 +1,78 @@
 	.export __cleanup
 	.export __cleanupb
-	.export __cleanup0
-	.export __cleanup1
-	.export __cleanup2
-	.export __cleanup3
-	.export __cleanup4
-	.export __cleanup5
-	.export __cleanup6
-	.export __cleanup7
-	.export __cleanup8
+	.export __cleanup_0
+	.export __cleanup_1
+	.export __cleanup_2
+	.export __cleanup_3
+	.export __cleanup_4
+	.export __cleanup_5
+	.export __cleanup_6
+	.export __cleanup_7
+	.export __cleanup_8
+	.export __cleanupa_0
+	.export __cleanupa_1
+	.export __cleanupa_2
+	.export __cleanupa_3
+	.export __cleanupa_4
+	.export __cleanupa_5
+	.export __cleanupa_6
+	.export __cleanupa_7
+	.export __cleanupa_8
 
 	.code
 
+__cleanupa_8:
+	mov	%9,b
+	jmp	__cleanupba
+__cleanupa_7:
+	mov	%8,b
+	jmp	__cleanupba
+__cleanupa_6:
+	mov	%7,b
+	jmp	__cleanupba
+__cleanupa_5:
+	mov	%6,b
+	jmp	__cleanupba
+__cleanupa_4:			; 4 is common, 3 is not
+	mov	%5,b
+	jmp	__cleanupba
+__cleanupa_3:
+	mov	%4,b
+	jmp	__cleanupba
+__cleanupa_2:
+	mov	%3,b
+	jmp	__cleanupba
+__cleanupa_1:
+	mov	%2,b
+	jmp	__cleanupba
+
 ; Always one more so we fold in the last bit of the return pop adjustment
-__cleanup8:
+__cleanup_8:
 	mov	%9,b
 	jmp	__cleanupb
-__cleanup7:
+__cleanup_7:
 	mov	%8,b
 	jmp	__cleanupb
-__cleanup6:
+__cleanup_6:
 	mov	%7,b
 	jmp	__cleanupb
-__cleanup5:
+__cleanup_5:
 	mov	%6,b
 	jmp	__cleanupb
-__cleanup3:
+__cleanup_4:
+	mov	%5,b
+	jmp	__cleanupb
+__cleanup_3:
 	mov	%4,b
 	jmp	__cleanupb
-__cleanup2:
+__cleanup_2:
 	mov	%3,b
 	jmp	__cleanupb
-__cleanup1:
+__cleanup_1:
 	mov	%2,b
 	jmp	__cleanupb
-__cleanup4:			; 4 is common, 3 is not
-	mov	%5,b
+__cleanupba:
+	adc	%0,r14
 __cleanupb:
 	clr	r10
 __cleanup:
@@ -48,7 +85,9 @@ __cleanup:
 	add	b,r15
 	adc	r10,r14
 	br	*r13		; and back to the caller
-__cleanup0:
+__cleanupa_0:
+	adc	%0,r14
+__cleanup_0:
 	lda	*r15
 	add	%1,r15
 	adc	%0,r14

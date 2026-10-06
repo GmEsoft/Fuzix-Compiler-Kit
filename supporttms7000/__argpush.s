@@ -18,10 +18,13 @@
 	.export __pushl0a
 
 ;
-;	On entry r13 is the offset on the stack
+;	On entry r1 is the offset on the stack
+;	or r12/r13 for word sized. Using r1 for bytes
+;	is much more compact codewise
 ;
 __pushln:
 	clr	r12
+	mov	r1,r13
 __pushlnw:
 	add	r15,r13
 	adc	r14,r12
@@ -41,6 +44,7 @@ __pushlnw:
 
 __pushlnl:
 	clr	r12
+	mov	r1,r13
 __pushlnwl:
 	add	r15,r13
 	adc	r14,r12

@@ -18,16 +18,22 @@
 
 ;	r12-r15 > r0-r3 ?
 
+__ccltconstbul:
+	mov b,r13
+	jmp ccltconstbu
 __ccltconst0ul:
 	clr r13
-__ccltconstbul:
+ccltconstbu:
 	clr r12
 	clr r11
 	clr r10
 	jmp __ccltconstul
+__ccltconstbl:
+	mov b,r13
+	jmp ccltconstb
 __ccltconst0l:
 	clr r13
-__ccltconstbl:
+ccltconstb:
 	clr r12
 	clr r11
 	clr r10
@@ -61,9 +67,12 @@ false:
 	clr r5
 	rets
 
+__ccgteqconstbl:
+	mov b,r13
+	jmp ccgteqconstb
 __ccgteqconst0l:
 	clr r13
-__ccgteqconstbl:
+ccgteqconstb:
 	clr r12
 	clr r11
 	clr r10
@@ -72,9 +81,12 @@ __ccgteqconstl:
 	xor %1,r5
 	rets
 
+__ccgteqconstbul:
+	mov b,r13
+	jmp ccgteqconstbu
 __ccgteqconst0ul:
 	clr r13
-__ccgteqconstbul:
+ccgteqconstbu:
 	clr r12
 	clr r11
 	clr r10

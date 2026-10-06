@@ -29,7 +29,7 @@ ct2:
 	rets
 
 __cceqconstb:
-	cmp r11,r5
+	cmp r5,b
 	jz ct
 	clr r4
 	clr r5

@@ -19,6 +19,7 @@ __cceqconstbl:
 	clr	r10
 	clr	r11
 	clr	r12
+	mov	b,r13
 __cceqconstl:
 	cmp	r2,r10
 	jnz	false

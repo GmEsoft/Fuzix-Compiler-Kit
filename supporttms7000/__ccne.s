@@ -18,13 +18,13 @@ cf:
 	clr r4
 	clr r5
 	rets
-c1:	clr r4
-	mov %1,r5
-	rets
 __ccneconst0:
 	or r4,r5
 	jnz c1
 	jmp cf
 __ccneconstb:
-	clr r10
-	jmp __ccneconst
+	cmp r5,b
+	jz cf
+c1:	clr r4
+	mov %1,r5
+	rets

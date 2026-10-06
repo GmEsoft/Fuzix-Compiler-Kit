@@ -9,8 +9,11 @@
 
 __cclteqconst0u:
 	clr r11
+	clr r10
+	jmp __cclteqconstu
 __cclteqconstbu:
 	clr r10
+	mov b,r11
 	jmp __cclteqconstu
 __ccltequ:
 	call @__pop10

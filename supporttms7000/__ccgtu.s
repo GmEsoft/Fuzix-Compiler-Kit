@@ -9,8 +9,11 @@
 
 __ccgtconst0u:
 	clr r11
+	clr r10
+	jmp __ccgtconstu
 __ccgtconstbu:
 	clr r10
+	mov b,r11
 	jmp __ccgtconstu
 __ccgtu:
 	call @__pop10
