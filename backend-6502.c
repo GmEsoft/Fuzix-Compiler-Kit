@@ -1403,6 +1403,7 @@ static int leftop_memc(struct node *n, const char *op)
 			if (sz == 2)
 				output("ldx %s+%u", name, v + 1);
 		}
+		invalidate_mem();
 		return 1;
 	case T_REG:
 		while(count--) {
@@ -1418,6 +1419,7 @@ static int leftop_memc(struct node *n, const char *op)
 			if (sz == 2)
 				output("ldx @reg%u+1", v);
 		}
+		invalidate_mem();
 		return 1;
 	case T_ARGUMENT:
 		v += argbase + frame_len;
