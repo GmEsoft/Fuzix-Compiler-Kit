@@ -20,7 +20,7 @@ _printint:
 	movp a,p252
 	mov r4,r0
 	movp a,p253
-	br @__cleanup2
+	br @__cleanup_2
 
 _printchar:
 	pop a
@@ -31,4 +31,4 @@ _printchar:
 	call @__gargr2
 	mov r5,r0
 	movp a,p254
-	br @__cleanup2
+	br @__cleanup_2
