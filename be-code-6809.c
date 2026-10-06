@@ -2214,6 +2214,10 @@ void gen_label(const char *tail, unsigned n)
 {
 	invalidate_all();
 	unreachable = 0;
+	/* On a goto target or on a ?: we don't propogate the flags
+	   down through the branch tree so assume them lost */
+	if (*tail == '_' || strcmp(tail,  "LC") == 0)
+		trackf = NULL;
 	outlabel("L%d%s", n, tail);
 }
 
