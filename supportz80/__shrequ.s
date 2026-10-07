@@ -36,11 +36,11 @@ shuffle:
 		rr	e
 		djnz	shuffle
 
+		pop	bc
+shrout:
 		ld	(hl),d
 		dec	hl
 		ld	(hl),e
 
-		pop	bc
-shrout:
 		ex	de,hl
 		ret
