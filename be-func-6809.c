@@ -83,6 +83,7 @@ void gen_case_label(unsigned tag, unsigned entry)
 {
 	unreachable = 0;
 	invalidate_all();
+	trackf = NULL;
 	outlabel("Sw%d_%d", tag, entry);
 }
 
