@@ -28,7 +28,7 @@ __shrequ:
 	mvi	d,0
 
 	sui	8
-	jz	nowork
+	jz	store
 nobyte:
 	push	b
 	mov	c,a
@@ -44,11 +44,12 @@ shuffle:
 	dcr	c
 	jnz	shuffle
 
+	pop	bc	; Recover BC
+store:
 	mov	m,d	; Store back into HL
 	dcx	h
 	mov	m,e
 
-	pop	b	; Recover B
 nowork:
 	xchg		; Value is the return
 	ret

@@ -17,7 +17,7 @@ __shrequ:
 
 	; No work to do
 	ani	15
-	rz
+	rz		; jusrt return value in HL
 
 	cpi	8
 	jc	nobyte
@@ -25,7 +25,7 @@ __shrequ:
 	mov	l,h
 	mvi	h,0
 	sui	8
-	rz
+	jz	store
 nobyte:
 	push	b
 	mov	c,a
@@ -42,5 +42,6 @@ shuffle:
 	jnz	shuffle
 
 	pop	b
+store:
 	shlx
 	ret
