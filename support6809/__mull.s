@@ -15,7 +15,7 @@
 __mull:
 __mulul:
 	leas	-6,s		; working space ,x->5,x
-				; moves argument to 6-9,x
+				; moves argument to 8-11,x
 	std	0,s
 ;
 ;	Do 32bit x low 8bits
@@ -72,6 +72,7 @@ norip16:
 ;	is common (eg for uint * ulong cases)
 ;
 	tfr	y,d	; again (b = sreg + 1)
+	subd	#0
 	beq	is_done
 	lda	11,s
 	mul
@@ -87,6 +88,7 @@ norip16:
 ;	And finally the top 8bits so almost everything overflows
 ;
 	tfr	y,d
+	tsta
 	beq	is_done
 	ldb	11,s
 	mul
