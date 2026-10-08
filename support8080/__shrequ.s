@@ -44,7 +44,7 @@ shuffle:
 	dcr	c
 	jnz	shuffle
 
-	pop	bc	; Recover BC
+	pop	b	; Recover BC
 store:
 	mov	m,d	; Store back into HL
 	dcx	h
