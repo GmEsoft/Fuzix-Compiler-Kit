@@ -1298,7 +1298,8 @@ static int pri_cchelp(register struct node *n, char *helper)
 		strcpy(buf, "l_");
 		strcat(buf, helper);
 		local_yop_s(n, buf);
-		set_reg(R_X, 1);
+		/* Boolean so X ends up 0 */
+		set_reg(R_X, 0);
 		return 1;
 	}
 
@@ -1959,6 +1960,8 @@ void gen_frame(unsigned size, unsigned aframe, unsigned t1)
 	if (frame_len == 0 && nregs == 0)
 		return;
 
+	printf(";total frame size is %u (%u %u)\n", space, size, aframe);
+
 	if (space <= 4 && !nregs) {
 		if (size)
 			output("jsr __sub%usp", size);
@@ -1977,10 +1980,10 @@ void gen_frame(unsigned size, unsigned aframe, unsigned t1)
 			space -= 255;
 			if (space < 256) {
 				load_y(space);
-				output("jsr __rs%usubysp", nregs);
+				output("jsr __rs0subysp");
+				set_reg(R_Y, 0);
+				return;
 			}
-			set_reg(R_Y, 0);
-			return;
 		}
 		space = -space;
 		load_a(space & 0xFF);
@@ -2002,16 +2005,19 @@ void gen_epilogue(unsigned size, unsigned argsize)
 	if (unreachable)
 		return;
 
+	printf(";exit total frame size (%u %u) nregs %u\n", size, argsize, nregs);
 	/* Non vararg functions the called function cleans up the
 	   arguments so add them in as well */
 	if (!(func_flags & F_VARARG))
 		size += argsize;
 
-	if (size > 256) {
+	printf(";total clean %u\n", size);
+
+	if (size > 255) {
 		/* Could optimize but all large frames are a fringe case */
 		if (nregs) {
 			load_y(0);
-			output("jmp __rr%uaddysp", nregs);
+			output("jsr __rr%uaddysp", nregs);
 		}
 		/* Ugly as we need to preserve XA */
 		if (!(func_flags & F_VOIDRET)) {
