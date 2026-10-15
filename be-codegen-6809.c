@@ -1665,15 +1665,20 @@ static unsigned gen_cast(struct node *n)
 			return 1;
 		}
 		if (opt > 2 && ls == 4) {
+			/* Sign extend the 16bit value in D into the high
+			   word held in Y.  D must be preserved, so save it
+			   and derive the sign (0x0000 or 0xffff) from the
+			   high byte, duplicating it into both halves of Y.
+			   (The 6800 version can simply store B twice into
+			   @hireg; on the 6809 Y has to be built up.) */
 			if (rs == 1)
 				output("Dsex");
-			output("pshb");
-			load_b_const(0);
-			output("Aasra");
-			output("Arola");
-			output("Bsbcb #0");
+			output("pshs d");
+			output("Btfr a,b");
+			output("Asex");
+			output("Btfr a,b");
 			tfr_d_y();
-			output("Bpulb");
+			output("Dpuls d");
 			return 1;
 		}
 		return 0;
