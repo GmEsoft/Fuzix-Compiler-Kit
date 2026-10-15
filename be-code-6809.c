@@ -1618,9 +1618,10 @@ unsigned write_uni_op(register struct node *r, const char *op, unsigned off)
 	switch(r->op) {
 	case T_LSTORE:
 	case T_LREF:
+		/* v is the frame offset; allow for anything pushed since */
 		if (s == 2)
-			output("%s %u,s", op, v + off + 1);
-		output("%s %u,s", op, v + off);
+			output("%s %u,s", op, v + off + sp + 1);
+		output("%s %u,s", op, v + off + sp);
 		break;
 	case T_NSTORE:
 	case T_NREF:
