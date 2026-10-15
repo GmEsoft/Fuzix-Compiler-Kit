@@ -136,15 +136,20 @@ unsigned generate_lref(register unsigned v, register unsigned size, unsigned to_
 	}
 	/* Word load is long winded on Z80 */
 	if (size == 2 && opt > 2) {
+		/* If the result is wanted in DE then HL currently holds the
+		   left hand side of the operation and must be preserved. Stash
+		   it in DE, load via HL and swap the result back out at the
+		   end. Loading straight into DE would clobber the left hand
+		   side. */
+		if (to_de)
+			printf("\tex de,hl\n");
 		printf("\tld hl,0x%x\n\tadd hl,sp\n", WORD(v));
-		if (IS_RABBIT)
-			printf("\tld hl,(hl + %u\n)\n", 0);
-		else if (IS_EZ80 && to_de)
-			printf("\tld de,(hl)\n");
-		else if (to_de)
-			printf("\tld e,(hl)\n\tinc hl\n\tld d,(hl)\n");
+		if (IS_RABBIT && !to_de)
+			printf("\tld hl,(hl + 0)\n");
 		else
 			printf("\tld a,(hl)\n\tinc hl\n\tld h,(hl)\n\tld l,a\n");
+		if (to_de)
+			printf("\tex de,hl\n");
 		return 1;
 	}
 	/* Via helper magic for compactness on Z80 */
