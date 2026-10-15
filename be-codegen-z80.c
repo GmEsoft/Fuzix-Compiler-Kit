@@ -1098,8 +1098,9 @@ unsigned gen_direct(register struct node *n)
 				} else {
 					if (load_a_with(r) == 0)
 						return 0;
-					printf("\tcpl\n\tinc a\n\n");
-					printf("\tsub (hl)\n\tld (hl),a\n");
+					/* A now holds -r; *p - r is A + *p */
+					printf("\tcpl\n\tinc a\n");
+					printf("\tadd a,(hl)\n\tld (hl),a\n");
 				}
 				if (!(n->flags & NORETURN))
 					printf("\tld l,a\n");
@@ -1612,16 +1613,21 @@ unsigned gen_shortcut(register struct node *n)
 					reg_incdec(reg, s, -v);
 					return 1;
 				}
-				/* Z80 has no 16bit subtract for IX or IT */
+				/* Z80 has no 16bit subtract for IX or IY.  The
+				   result of a post-decrement is the old value, so
+				   that has to end up in HL (this mirrors the
+				   T_PLUSPLUS path). */
 				if (reg != 1) {
 					if (r->op == T_CONSTANT) {
-						printf("\tld de,%u\n", -v);
+						get_regvar(reg, n, s);
+						printf("\tld de,%u\n", WORD(-v));
 						printf("\tadd %s,de\n", regnames[reg]);
 						return 1;
 					}
 					codegen_lr(r);
 					helper(n, "negate");
 					printf("\tex de,hl\n");
+					get_regvar(reg, n, s);
 					printf("\tadd %s,de\n", regnames[reg]);
 					return 1;
 				}
@@ -1641,11 +1647,9 @@ unsigned gen_shortcut(register struct node *n)
 				get_regvar(reg, n, s);
 				return 1;
 			}
-			/* Get the subtraction value into HL */
-			codegen_lr(r);
 			if (reg != 1) {
 				if (r->op == T_CONSTANT) {
-					printf("\tlxi d,%u\n", -v);
+					printf("\tld de,%u\n", WORD(-v));
 					printf("\tadd %s,de\n", regnames[reg]);
 				} else {
 					codegen_lr(r);
@@ -1653,8 +1657,12 @@ unsigned gen_shortcut(register struct node *n)
 					printf("\tex de,hl\n");
 					printf("\tadd %s,de\n", regnames[reg]);
 				}
-			} else
+			} else {
+				/* Get the subtraction value into HL for the
+				   BC helper */
+				codegen_lr(r);
 				reghelper(n, "bcsub");
+			}
 			/* Result is only left in reg var reload if needed */
 			get_regvar(reg, n, s);
 			return 1;
@@ -1711,7 +1719,7 @@ unsigned gen_shortcut(register struct node *n)
 				}
 				if (v > 8) {
 					printf("\tld a,c\n");
-					repeated_op("add a", v - 8);
+					repeated_op("add a,a", v - 8);
 					printf("\tld b,a\nld c,0x0\n");
 					get_regvar(reg, n, s);
 					return 1;
