@@ -1923,15 +1923,18 @@ unsigned cmp_known(struct node *n, unsigned s, unsigned t, unsigned v)
 		return 0;
 	if (!b_valid || (s == 2 && !a_valid))
 		return 0;
-	/* NE match */
+	/* match is 1 if the tracked working value equals v, 2 if not */
 	if (b_val != BYTE(v))
 		match = 2;
 	else if (s == 2 && BYTE(WORD(v >> 8)) != a_val)
 		match = 2;
-	if (t == match)
-		set_z_known(2 - t);
-	else
-		set_z_known(t - 1);
+	/* t is the predicate: 1 for ==, 2 for !=.  0 means an ordered or
+	   otherwise unresolvable comparison which we cannot answer from
+	   equality alone.  The condition is known true when the predicate
+	   matches how the working value compares to v. */
+	if (t == 0)
+		return 0;
+	set_z_known(match == t ? 0 : 1);
 	n->flags |= USECC;
 	return 1;
 }
@@ -1952,7 +1955,9 @@ unsigned cmp_direct(struct node *n, const char *uop, const char *sop, unsigned t
 	if (!can_load_r_simple(r))
 		return 0;
 
-	if (cmp_known(n, s, t, v))
+	/* Only meaningful when the right hand side really is a constant;
+	   otherwise v is a symbol/frame offset, not a value */
+	if (r->op == T_CONSTANT && cmp_known(n, s, t, v))
 		return 1;
 
 	/* Needs thought, also need to allow for CCFIXED */

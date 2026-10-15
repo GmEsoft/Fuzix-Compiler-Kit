@@ -1316,8 +1316,11 @@ unsigned gen_shortcut(struct node *n)
 		   generate the subtree and take a look */
 		codegen_lr(r);
 //		output_nf(";bool");
-		/* Constant result ? */
-		if (cmp_known(n, get_size(r->type), 1, 0))
+		/* Constant result ?  BOOL wants "r != 0".  Only test the
+		   working register if the child did not already produce
+		   condition codes: in that case the register may not hold the
+		   child's value any more. */
+		if (!(r->flags & USECC) && cmp_known(n, get_size(r->type), 2, 0))
 			return 1;
 		/* The thing to bool is USECC but we are not. This should not happen */
 		if (!(n->flags & CCONLY) && (r->flags & USECC) && !(r->flags & ISBOOL)) {
@@ -1385,8 +1388,10 @@ unsigned gen_shortcut(struct node *n)
 		/* Same as with BOOL */
 		codegen_lr(r);
 //		output_nf(";bang");
-		/* Constant result ? */
-		if (cmp_known(n, get_size(r->type), 2, 0)) {
+		/* Constant result ?  BANG wants "r == 0".  As with BOOL only
+		   look at the working register if the child has not already
+		   set the condition codes. */
+		if (!(r->flags & USECC) && cmp_known(n, get_size(r->type), 1, 0)) {
 			output_nf(";known");
 			return 1;
 		}
