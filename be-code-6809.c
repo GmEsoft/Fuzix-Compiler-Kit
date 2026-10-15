@@ -65,12 +65,12 @@ void invalidate_x(void)
 
 void invalidate_y(void)
 {
-	rnode[R_X].op = 0;
+	rnode[R_Y].op = 0;
 }
 
 void invalidate_u(void)
 {
-	rnode[R_X].op = 0;
+	rnode[R_U].op = 0;
 }
 
 /* If we lose tracking on A or B then defacto we lost tracking on D */
