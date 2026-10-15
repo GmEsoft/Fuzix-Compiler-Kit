@@ -8,8 +8,9 @@ __mul:
 	ex	de,hl
 	pop	hl
 	ex	(sp),hl
+	jr	__mulde		; full 16x16, DE holds the right operand
 ;
-;		HL * DE
+;		HL * DE with only the low half of the right operand
 ;
 __mulde0d:
 	ld	d,0
