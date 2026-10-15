@@ -235,17 +235,19 @@
 	xor l
 	ld l,a
 
-# Byte load and then store to local without data then being needed
-# TODO: might be able to fix this up in the backend pass as tree match
+# Byte constant store to a local.  Keep the value in A (and, via the
+# following "ld l,a" when the result is used, in L): folding straight to
+# "ld (hl),0x%1" used to leave A/L holding whatever they had before.
 	ld l,0x%1
 	ld a,l
 	ld hl,%2
 	add hl,sp
 	ld (hl),a
 =
+	ld a,0x%1
 	ld hl,%2
 	add hl,sp
-	ld (hl),0x%1
+	ld (hl),a
 
 # Use ex (sp),hl for some setups. Needs a big match as we use pop af to get the
 # byte 1 offset byte sized argument now and then
