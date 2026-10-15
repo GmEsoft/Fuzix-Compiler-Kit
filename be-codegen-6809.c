@@ -676,7 +676,9 @@ unsigned gen_uni_direct(struct node *n)
 			r->value, nr, n->value, n->snum, s); */
 		if (r->op == T_CONSTANT && r->value == 0 && nr) {
 			if (n->snum == 0 && s == 1) {
-				output("Mclr [%u,s]", WORD(n->value));
+				/* n->value is the frame offset of the pointer
+				   local; correct for anything pushed since */
+				output("Mclr [%u,s]", WORD(n->value + sp));
 				return 1;
 			}
 		}
