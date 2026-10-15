@@ -10,9 +10,8 @@ __cmpne0d:
 __cmpne:
 		or	a
 		sbc	hl,de
-		ret	z		; HL 0, Z set
-		inc	l		; HL now 1 Z clear (true)
-		ret
+		jp	z,__false	; equal -> 0
+		jp	__true		; not equal -> 1
 
 ; Used by optimizer peephole to squash 8 v 8 compare into cmp a with l
 __cmpnela:
