@@ -4,19 +4,14 @@
 		.export __mul
 
 		.code
+;
+;	DE * HL
+;
 __mul:
 	ex	de,hl
 	pop	hl
 	ex	(sp),hl
-	jr	__mulde		; full 16x16, DE holds the right operand
-;
-;		HL * DE with only the low half of the right operand
-;
-__mulde0d:
-	ld	d,0
-;
-;	DE * HL
-;
+	; full 16x16, DE holds the right operand
 __mulde:
 	push	bc
 	ld	b,h		; copy value over
@@ -37,4 +32,10 @@ noset:	djnz	loop
 
 __muldeb:
 	ld	h,0
+	jr	__mulde
+;
+;		HL * DE with only the low half of the right operand
+;
+__mulde0d:
+	ld	d,0
 	jr	__mulde
