@@ -503,7 +503,6 @@ unsigned gen_direct(struct node *n)
 			}
 			if (s == 1) {
 				add_b_const(-r->value);
-				b_val -= r->value;
 				set_z_flag(0);
 				return 1;
 			}
