@@ -774,12 +774,12 @@ unsigned gen_direct(register struct node *n)
 		gen_cleanup(v);
 		return 1;
 	case T_NSTORE:
+		/* shortcut should always cover this */
 		if (s > 2)
 			return 0;
 		if (s == 1)
 			printf("\tld a,l\n");
 		printf("\tld (%s+%u),", namestr(n->snum), WORD(n->value));
-			return 1;
 		if (s == 1)
 			printf("a\n");
 		else
