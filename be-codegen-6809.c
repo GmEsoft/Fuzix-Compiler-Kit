@@ -1004,7 +1004,7 @@ unsigned memop_shift(struct node *n, const char *op, const char *opu)
 		repeated_op(rv, workbuf);
 		return 1;
 	case T_RREF:
-		sprintf(workbuf, "M%s %u,u", op, v + sp);
+		sprintf(workbuf, "M%s %u,u", op, v);
 		repeated_op(rv, workbuf);
 		return 1;
 	}
