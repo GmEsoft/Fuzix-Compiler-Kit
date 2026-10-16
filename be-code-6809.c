@@ -1904,7 +1904,7 @@ static unsigned load_r_with(char reg, struct node *r)
 unsigned load_x_with(struct node *r)
 {
 	if (r_holds_node(rnode + R_X, r))
-		return 1;
+		return 0;
 	return load_r_with('x', r);
 }
 
@@ -1912,7 +1912,7 @@ unsigned load_x_with(struct node *r)
 unsigned load_u_with(struct node *r)
 {
 	if (r_holds_node(rnode + R_U, r))
-		return 1;
+		return 0;
 	return load_r_with('u', r);
 }
 
