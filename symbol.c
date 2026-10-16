@@ -86,7 +86,7 @@ struct symbol *mark_local_symbols(void)
 struct symbol *alloc_symbol(unsigned name, unsigned local)
 {
 	register struct symbol *s = local_top;
-	while (s <= &symtab[MAXSYM]) {
+	while (s < &symtab[MAXSYM]) {
 		if (s->infonext == S_FREE) {
 			if (local && local_top < s)
 				local_top = s;
