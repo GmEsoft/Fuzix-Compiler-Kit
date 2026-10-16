@@ -275,15 +275,18 @@ static void set_r_to(unsigned r, uint16_t v)
 static void modify_r_by(unsigned r, uint16_t v)
 {
 	register struct node *rp = rnode + r;
+	register uint16_t n;
+
 	if (r == R_D) {
-		uint16_t n = (a_val << 8) | b_val;
+		n = (a_val << 8) | b_val;
 		n += v;
 		b_val = BYTE(n);
 		if (a_valid && b_valid)
 			a_val = BYTE(n >> 8);
-	}
+	} else
+		n = rp->value + v;
 	rp->op = T_CONSTANT;
-	rp->value = v;
+	rp->value = n;
 	rp->snum = 0;
 }
 
