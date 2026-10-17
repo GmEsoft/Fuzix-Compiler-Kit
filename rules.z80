@@ -547,3 +547,28 @@
 	ld c,l
 	in l,(c)
 	pop bc
+
+# Simple 0 tracking rule
+
+	ld a,h
+	or l
+;
+	jr nz,%1
+	ld hl,0xffff
+=
+	ld a,h
+	or l
+;
+	jr nz,%1
+	dec hl
+
+# Double adds - need to improve folding of these in the compiler itself
+
+	ld de,_%2+%3
+	add hl,de
+	ld de,%1
+	add hl,de
+=
+	ld de,_%2+%3+%1
+	add hl,de
+
