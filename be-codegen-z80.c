@@ -419,17 +419,17 @@ static unsigned gen_compc(const char *op, register struct node *n,
 					return 1;
 				}
 			}
-			if (s == 1 && r->value == 255) {
+			if (s == 1 && BYTE(r->value) == 255) {
 				printf("\tinc l\n");
 				n->flags |= USECC;
 				return 1;
 			}
-			if (s == 2 && r->value == 0xFFFF) {
+			if (s == 2 && WORD(r->value) == 0xFFFF) {
 				printf("\tld a,h\n\tand l\n\tinc a\n");
 				n->flags |= USECC;
 				return 1;
 			}
-			if (s == 2 && r->value <= 0xFF) {
+			if (s == 2 && WORD(r->value) <= 0xFF) {
 				/* The xor is a compare resulting in 0 if equal,
 				   and the or h then checks the high byte matches */
 				printf("\tld a,0x%x\n", (unsigned)r->value);
@@ -438,7 +438,7 @@ static unsigned gen_compc(const char *op, register struct node *n,
 				n->flags |= USECC;
 				return 1;
 			}
-			if (s == 2 && (r->value & 0xFF) == 0) {
+			if (s == 2 && BYTE(r->value) == 0) {
 				printf("\tld a,0x%x\n", (unsigned)r->value >> 8);
 				printf("\txor h\n");
 				printf("\tor l\n");
@@ -467,19 +467,19 @@ static unsigned gen_compc(const char *op, register struct node *n,
 					return 1;
 				}
 			}
-			if (r->value == 255 && s == 1) {
+			if (BYTE(r->value) == 255 && s == 1) {
 				printf("\tinc l\n");
 				ccflags = ccinvert;
 				n->flags |= USECC;
 				return 1;
 			}
-			if (r->value == 0xFFFF && s == 2) {
+			if (WORD(r->value) == 0xFFFF && s == 2) {
 				printf("\tld a,h\n\tand l\n\tinc a\n");
 				ccflags = ccinvert;
 				n->flags |= USECC;
 				return 1;
 			}
-			if (s == 2 && r->value <= 0xFF) {
+			if (s == 2 && WORD(r->value) <= 0xFF) {
 				/* The xor is a compare resulting in 0 if equal,
 				   and the or h then checks the high byte matches */
 				printf("\tld a,0x%x\n", (unsigned)r->value);
@@ -489,7 +489,7 @@ static unsigned gen_compc(const char *op, register struct node *n,
 				n->flags |= USECC;
 				return 1;
 			}
-			if (s == 2 && (r->value & 0xFF) == 0) {
+			if (s == 2 && BYTE(r->value) == 0) {
 				printf("\tld a,0x%x\n", (unsigned)r->value >> 8);
 				printf("\txor h\n");
 				printf("\tor l\n");
