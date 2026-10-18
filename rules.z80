@@ -310,7 +310,7 @@
 	ld h,0x0
 =
 	ld l,c
-	ld h,0
+	ld h,0x0
 
 # char = regint >> 8
 	ld l,c
@@ -330,7 +330,7 @@
 	ld a,%1
 	and (hl)
 	ld l,a
-	ld h,0
+	ld h,0x0
 
 	ld l,(hl)
 	ld h,0x0
@@ -341,7 +341,7 @@
 	ld a,%1
 	or (hl)
 	ld l,a
-	ld h,0
+	ld h,0x0
 
 	ld l,(hl)
 	ld h,0x0
@@ -352,7 +352,7 @@
 	ld a,%1
 	xor (hl)
 	ld l,a
-	ld h,0
+	ld h,0x0
 
 # Compare to 8bit value of 8bit widened to 16
 	ld h,0x0
@@ -480,13 +480,13 @@
 # IX/IY and DE avoiding over the top stuff
 	push hl
 ;
-	ld h,(i%1 + 1)
-	ld l,(i%1 + 0)
+	ld h,(i%1 + 0x1)
+	ld l,(i%1 + 0x0)
 	ex de,hl
 	pop hl
 =
-	ld d,(i%1 + 1)
-	ld e,(i%1 + 0)
+	ld d,(i%1 + 0x1)
+	ld e,(i%1 + 0x0)
 
 #
 #	__builtin hacks. For now just do in and out but we could do some
@@ -566,9 +566,16 @@
 
 	ld de,_%2+%3
 	add hl,de
-	ld de,%1
+	ld de,_%1
 	add hl,de
 =
-	ld de,_%2+%3+%1
+	ld de,_%2+%3+_%1
 	add hl,de
 
+	ld de,_%2+%3
+	add hl,de
+	ld de,0x%1
+	add hl,de
+=
+	ld de,_%2+%3+0x%1
+	add hl,de

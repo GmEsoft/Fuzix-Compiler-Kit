@@ -295,7 +295,7 @@ void gen_switchdata(unsigned n, unsigned size)
 			printf("\tjr L%u_e\n", n);
 	}
 	printf("Sw%u:\n", n);
-	printf("\t.word %u\n", size);
+	printf("\t.word 0x%x\n", size);
 }
 
 void gen_case_label(unsigned tag, unsigned entry)
@@ -335,31 +335,31 @@ void gen_literal(unsigned n)
 
 void gen_name(struct node *n)
 {
-	printf("\t.word %s+%u\n", namestr(n->snum), WORD(n->value));
+	printf("\t.word %s+0x%x\n", namestr(n->snum), WORD(n->value));
 }
 
 void gen_value(unsigned type, unsigned long value)
 {
 	unsigned w = WORD(value);
 	if (PTR(type)) {
-		printf("\t.word %u\n", w);
+		printf("\t.word 0x%x\n", w);
 		return;
 	}
 	switch (type) {
 	case CCHAR:
 	case UCHAR:
-		printf("\t.byte %u\n", BYTE(w));
+		printf("\t.byte 0x%x\n", BYTE(w));
 		break;
 	case CSHORT:
 	case USHORT:
-		printf("\t.word %u\n", w);
+		printf("\t.word 0x%x\n", w);
 		break;
 	case CLONG:
 	case ULONG:
 	case FLOAT:
 		/* We are little endian */
-		printf("\t.word %u\n", w);
-		printf("\t.word %u\n", (unsigned) ((value >> 16) & 0xFFFF));
+		printf("\t.word 0x%x\n", w);
+		printf("\t.word 0x%x\n", (unsigned) ((value >> 16) & 0xFFFF));
 		break;
 	default:
 		error("unsuported type");
