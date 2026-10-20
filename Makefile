@@ -305,6 +305,7 @@ clean:
 	(cd support68hc11; make clean)
 	(cd support8070; make clean)
 	(cd support8080; make clean)
+	(cd support8080-32; make clean)
 	(cd supportee200; make clean)
 	(cd supportsm83; make clean)
 	(cd supportnova; make clean)
