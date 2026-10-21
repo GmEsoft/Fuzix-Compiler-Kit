@@ -99,13 +99,16 @@ Things that add size and complexity or are just pointless.
 * bitfields
 * const and volatile typing. To do these makes type handling really really tricky. They are accepted so that code with them can build and some magic tricks are done to get volatile right
 
-###
-
-Known incompatibilities (some to be fixed)
+### Known incompatibilities (some to be fixed)
 
 * The constant value -32768 does not always get typed correctly. The reason for this is a complicated story about how cc0/cc1 interact.
 * Many C compilers permit (void) to 'cast' the result of a call away, we do not.
 * Local variables have a single function wide scope not a block scope
+
+### Extensions
+
+* Symbol names can be unicode UTF8
+* Support on many targets for overlays or banked code with switching handled automatically
 
 ## Backend Status
 
@@ -125,8 +128,8 @@ code will run only on the 6303, and 68HC11 code only on the 68HC11.
 
 ### 6502
 
-Passes all the test suite. Will need further testing on more real code.
-Should be considered an early beta.
+Passes all the test suites. Used to build Fuix on 6502 so now getting a
+decent amount of coverage testing and use.
 
 ### 65C816
 
@@ -298,7 +301,7 @@ room.
 ### cc2
 
 This is at its heart a very simple left hand walking code generator. The
-core backed allows targets to rewrite subtrees, to evaluate trees in other
+core backend allows targets to rewrite subtrees, to evaluate trees in other
 orders when useful and also provides an interface that allows the target
 to shortcut the stack whenever it can access the second item of data for
 an operation without disturbing the working value.
