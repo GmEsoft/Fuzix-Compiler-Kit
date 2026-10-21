@@ -1147,7 +1147,7 @@ static unsigned gen_logicc(struct node *n, unsigned s, const char *op, unsigned 
 	return 1;
 }
 
-static unsigned gen_fast_remainder(unsigned n, unsigned s)
+static unsigned gen_fast_remainder(unsigned s, unsigned n)
 {
 	unsigned mask;
 	if (s != 2)

@@ -2115,7 +2115,7 @@ unsigned gen_fast_mul(unsigned s, unsigned n)
 	}
 }
 
-unsigned gen_fast_div(unsigned n, unsigned s, unsigned u)
+unsigned gen_fast_div(unsigned s, unsigned n, unsigned u)
 {
 	u &= UNSIGNED;
 	if (s != 2)

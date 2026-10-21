@@ -632,7 +632,7 @@ static void gen_fast_mul(unsigned s, unsigned n)
 		write_mul(n);
 }
 
-static unsigned gen_fast_div(register unsigned n, unsigned s, unsigned u)
+static unsigned gen_fast_div(register unsigned s, unsigned n, unsigned u)
 {
 	u &= UNSIGNED;
 	if (s != 2)
@@ -718,7 +718,7 @@ static unsigned gen_logicc(register struct node *n, unsigned s, const char *op,
 	return 1;
 }
 
-static unsigned gen_fast_remainder(register unsigned n, unsigned s)
+static unsigned gen_fast_remainder(register unsigned s, unsigned n)
 {
 	unsigned mask;
 	if (s != 2)
