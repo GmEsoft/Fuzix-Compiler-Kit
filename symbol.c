@@ -213,8 +213,17 @@ unsigned *sym_find_idx(unsigned storage, unsigned *idx, unsigned len)
 {
 	register struct symbol *sym = symtab;
 	unsigned blen = len * sizeof(unsigned);
+	unsigned idx0 = *idx;
+
 	while (sym <= last_sym) {
-		if (S_STORAGE(sym->infonext) == storage && memcmp(sym->data.idx, idx, blen) == 0)
+		/* We are not guaranteed that memcmp will compare the first
+		   word first and thus return a mismatch before referencing
+		   beyond the end of the data so compare idx[0] by
+		   hand. It's also it turns out faster on 8bit to do this
+		   anyway */
+		if (S_STORAGE(sym->infonext) == storage &&
+			sym->data.idx[0] == idx0 &&
+			memcmp(sym->data.idx, idx, blen) == 0)
 			return sym->data.idx;
 		sym++;
 	}
