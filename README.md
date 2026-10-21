@@ -36,7 +36,7 @@ Either make the `/opt/fcc` directory and make it owned by your user or do
 the install phase with appropriate privileges.
 
 The assembler and loader tools required live in the
-[Fuzix-Bintools repository](https://github.com/EtchedPixels/Fuzix-Bintools).
+[Fuzix-Bintools repository](https://codeberg.org/EtchedPixels/Fuzix-Bintools).
 To build it all first clone the Fuzix-Bintools respository and `make install`.
 Then make sure `/opt/fcc` is on your path.
 
